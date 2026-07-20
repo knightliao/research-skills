@@ -1,1 +1,49 @@
-name,category,homepage,notes
+entity_id,entity_name,entity_type,category,region,primary_focus,official_url,source_priority,tracking_priority,status,last_reviewed,notes
+openai,OpenAI,company,基础模型与平台,US,模型工具调用与 Agent 平台,https://openai.com/,primary,high,active,,关注跨产品的 Agent 平台和开发者生态
+anthropic,Anthropic,company,基础模型与平台,US,模型工具调用与计算机操作,https://www.anthropic.com/,primary,high,active,,关注模型能力和 Agent 工程接口
+google-deepmind,Google DeepMind,company,基础模型与平台,global,模型与多 Agent 研究,https://deepmind.google/,primary,high,active,,关注研究制品与平台落地之间的变化
+microsoft-ai,Microsoft AI,company,基础模型与平台,global,企业与开发者 Agent 平台,https://www.microsoft.com/en-us/ai,primary,medium,active,,覆盖模型平台和企业分发入口
+amazon-bedrock,Amazon Bedrock,platform,基础模型与平台,global,企业 Agent 基础设施,https://aws.amazon.com/bedrock/,primary,medium,active,,关注云端编排与企业交付能力
+qwen,Qwen,platform,基础模型与平台,China,开源模型与 Agent 能力,https://qwen.ai/,primary,high,active,,关注模型工具调用和开源生态
+deepseek,DeepSeek,company,基础模型与平台,China,模型推理与 Agent 能力,https://deepseek.com/,primary,high,active,,关注官方模型平台与公开研究制品
+zhipu-ai-open-platform,ZHIPU AI Open Platform,platform,基础模型与平台,China,模型 API 与 Agent 开发,https://open.bigmodel.cn/,primary,medium,active,,关注开发平台和智能体相关接口
+coze,Coze,product,通用 Agent 产品,China,通用 Agent 与工作流创建,https://www.coze.cn/,primary,medium,active,,关注产品形态和开发者平台
+manus,Manus,product,通用 Agent 产品,global,通用任务执行,https://www.manus.is/,primary,medium,watch,,仅跟踪可确认的产品和官方状态变化
+genspark,Genspark,product,通用 Agent 产品,global,通用任务与浏览器体验,https://www.genspark.ai/,primary,medium,watch,,关注产品可用性和任务交付方式
+github-copilot,GitHub Copilot,product,编程与软件工程 Agent,global,软件开发工作流,https://github.com/features/copilot,primary,medium,active,,关注代码执行和软件工程任务闭环
+cursor,Cursor,product,编程与软件工程 Agent,US,Agent 编程环境,https://cursor.com/,primary,medium,active,,关注编辑器内长任务和工程协作
+claude-code,Claude Code,product,编程与软件工程 Agent,global,终端与代码执行,https://www.anthropic.com/claude-code,primary,medium,active,,与 Anthropic 平台条目分开跟踪产品发布
+openhands,OpenHands,project,编程与软件工程 Agent,global,开源软件工程 Agent,https://github.com/All-Hands-AI/OpenHands,primary,medium,active,,关注 Release 和可复现工程任务
+cline,Cline,project,编程与软件工程 Agent,global,编辑器内自主编程,https://github.com/cline/cline,primary,medium,active,,关注工具调用与开发者采用
+aider,Aider,project,编程与软件工程 Agent,global,终端结对编程,https://github.com/Aider-AI/aider,primary,low,active,,关注稳定 Release 和模型适配
+browser-use,Browser Use,framework,浏览器与计算机操作 Agent,global,浏览器自动化 Agent,https://github.com/browser-use/browser-use,primary,medium,active,,关注开源框架和浏览器执行可靠性
+skyvern,Skyvern,project,浏览器与计算机操作 Agent,US,视觉网页工作流自动化,https://github.com/Skyvern-AI/skyvern,primary,medium,active,,关注复杂网页任务和企业集成
+stagehand,Stagehand,framework,浏览器与计算机操作 Agent,US,浏览器 Agent 开发接口,https://github.com/browserbase/stagehand,primary,medium,active,,关注浏览器操作抽象和测试能力
+playwright-mcp,Playwright MCP,project,浏览器与计算机操作 Agent,global,MCP 浏览器自动化,https://github.com/microsoft/playwright-mcp,primary,medium,active,,关注协议与浏览器执行结合
+microsoft-copilot-studio,Microsoft Copilot Studio,platform,企业工作流 Agent,global,企业 Agent 构建与治理,https://www.microsoft.com/en-us/microsoft-copilot/microsoft-copilot-studio,primary,medium,active,,关注企业连接器和治理能力
+salesforce-agentforce,Salesforce Agentforce,platform,企业工作流 Agent,global,CRM 与企业 Agent,https://www.salesforce.com/agentforce/,primary,medium,active,,关注产品可用范围和企业工作流
+servicenow-ai-agents,ServiceNow AI Agents,product,企业工作流 Agent,global,IT 与服务管理工作流,https://www.servicenow.com/products/ai-agents.html,primary,medium,active,,关注平台内流程执行和治理
+sap-joule,SAP Joule,product,企业工作流 Agent,global,企业业务流程 Agent,https://www.sap.com/products/artificial-intelligence/ai-agents.html,primary,medium,active,,关注跨业务系统的 Agent 协作
+uipath-agentic-automation,UiPath Agentic Automation,platform,企业工作流 Agent,global,Agent 与自动化编排,https://www.uipath.com/product/agentic-automation,primary,medium,active,,关注确定性自动化与 Agent 的边界
+dingtalk,DingTalk,product,企业工作流 Agent,China,协作入口与企业 AI 工作流,https://www.dingtalk.com/,primary,medium,active,,关注中国企业协作场景中的 Agent 应用
+langgraph,LangGraph,framework,Agent 开发框架,global,有状态 Agent 编排,https://github.com/langchain-ai/langgraph,primary,high,active,,关注长任务状态和编排接口
+autogen,AutoGen,framework,Agent 开发框架,global,多 Agent 协作,https://github.com/microsoft/autogen,primary,medium,active,,关注开源 Release 和多 Agent 架构
+crewai,CrewAI,framework,Agent 开发框架,global,多 Agent 工作流,https://github.com/crewAIInc/crewAI,primary,medium,active,,关注框架演进和企业工作流
+llamaindex,LlamaIndex,framework,Agent 开发框架,global,数据连接与 Agent 工作流,https://github.com/run-llama/llama_index,primary,medium,active,,关注数据接入和上下文工程
+dify,Dify,platform,Agent 开发框架,China,开源 Agent 应用平台,https://github.com/langgenius/dify,primary,high,active,,关注中国与全球开发者生态
+openai-agents-sdk,OpenAI Agents SDK,framework,Agent 开发框架,global,Agent 编排与工具调用,https://github.com/openai/openai-agents-python,primary,high,active,,关注公开 SDK 和互操作能力
+agentscope,AgentScope,framework,Agent 开发框架,China,多 Agent 开发与运行,https://github.com/agentscope-ai/agentscope,primary,medium,active,,关注开源框架和生产工程能力
+model-context-protocol,Model Context Protocol,protocol,工具协议和连接器生态,global,模型与工具连接协议,https://modelcontextprotocol.io/,primary,high,active,,关注规范版本与官方生态
+agent2agent-protocol,Agent2Agent Protocol,protocol,工具协议和连接器生态,global,Agent 间互操作,https://a2a-protocol.org/,primary,high,active,,关注规范和跨框架采用
+composio,Composio,platform,工具协议和连接器生态,global,工具与连接器平台,https://composio.dev/,primary,medium,active,,关注连接器治理和实际集成
+smithery,Smithery,platform,工具协议和连接器生态,global,MCP 服务发现与部署,https://smithery.ai/,primary,low,watch,,关注目录质量和服务治理
+langfuse,Langfuse,platform,记忆、上下文、评估、安全和可观测性,Europe,Agent 可观测性与评估,https://github.com/langfuse/langfuse,primary,medium,active,,关注开源评估和追踪能力
+arize-phoenix,Arize Phoenix,project,记忆、上下文、评估、安全和可观测性,US,开源可观测性与评估,https://github.com/Arize-ai/phoenix,primary,medium,active,,关注 Agent 评估和追踪制品
+mem0,Mem0,project,记忆、上下文、评估、安全和可观测性,global,Agent 记忆层,https://github.com/mem0ai/mem0,primary,medium,active,,关注记忆接口和生产验证
+zep,Zep,platform,记忆、上下文、评估、安全和可观测性,US,Agent 上下文与记忆,https://www.getzep.com/,primary,medium,active,,关注长期上下文和检索工程
+agentops,AgentOps,platform,记忆、上下文、评估、安全和可观测性,US,Agent 监控与评估,https://github.com/AgentOps-AI/agentops,primary,low,watch,,关注运行指标和评估集成
+openmanus,OpenManus,project,开源新项目,China,开源通用 Agent,https://github.com/FoundationAgents/OpenManus,primary,low,watch,,候选项目需持续核验维护和复现
+suna,Suna,project,开源新项目,global,开源通用任务执行,https://github.com/kortix-ai/suna,primary,low,watch,,候选项目不因热度自动升级
+harvey,Harvey,company,垂直行业 Agent,US,法律工作流,https://www.harvey.ai/,primary,medium,active,,关注可验证的专业工作流与企业采用
+hippocratic-ai,Hippocratic AI,company,垂直行业 Agent,US,医疗工作流,https://www.hippocraticai.com/,primary,medium,active,,关注安全边界和真实部署证据
+sierra,Sierra,company,垂直行业 Agent,US,客户服务工作流,https://sierra.ai/,primary,medium,active,,关注服务 Agent 的交付与商业化
