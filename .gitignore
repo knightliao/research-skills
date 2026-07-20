@@ -1,6 +1,11 @@
 # IDE files
 .idea/
 .vscode/
+*~
+*.swp
+*.swo
+*.tmp
+.#*
 
 # Python
 __pycache__/
@@ -18,4 +23,6 @@ venv/
 .env
 .env.*
 !.env.example
+dist/
 reports/
+runs/

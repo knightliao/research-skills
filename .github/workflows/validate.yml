@@ -1,0 +1,61 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run unit tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Validate all Skills
+        run: python3 tools/validate_all_skills.py .
+
+      - name: Compile Python sources
+        run: |
+          python3 -m compileall \
+            tools \
+            tests \
+            .agents/skills/global-ai-agent-radar/scripts
+
+      - name: Package global-ai-agent-radar
+        run: |
+          python3 tools/package_skill.py \
+            global-ai-agent-radar \
+            --output-dir dist
+
+      - name: Verify ZIP archive
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          archive_path = Path("dist/global-ai-agent-radar.zip")
+          with ZipFile(archive_path) as archive:
+              assert archive.testzip() is None, "ZIP 中存在损坏文件"
+              names = archive.namelist()
+              assert names, "ZIP 不得为空"
+              assert {name.split("/", 1)[0] for name in names} == {
+                  "global-ai-agent-radar"
+              }, "ZIP 必须只有一个正确命名的顶层目录"
+              assert "global-ai-agent-radar/SKILL.md" in names, "ZIP 缺少 SKILL.md"
+          print(f"ZIP 校验通过：{archive_path}")
+          PY
