@@ -1,0 +1,21 @@
+# IDE files
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# OS files
+.DS_Store
+
+# Local secrets and generated research output
+.env
+.env.*
+!.env.example
+reports/
