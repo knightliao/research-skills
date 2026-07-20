@@ -1,42 +1,352 @@
+"""仓库级 Skill 校验工具的自动化测试。"""
+
 from __future__ import annotations
 
+import csv
+import importlib.util
+import io
+import shutil
+import sys
+import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS_DIR = ROOT / ".agents" / "skills"
-REQUIRED_FILES = {
-    "SKILL.md",
-    "references/source-policy.md",
-    "references/scoring-rubric.md",
-    "references/deduplication-policy.md",
-    "references/company-watchlist.md",
-    "examples/good-report.md",
-    "examples/bad-report.md",
-    "examples/no-major-change-report.md",
-    "assets/report-template.md",
-    "assets/watchlist.csv",
-    "scripts/validate_events.py",
-}
+VALIDATOR_PATH = ROOT / "tools" / "validate_all_skills.py"
 
 
-class SkillStructureTests(unittest.TestCase):
-    def test_expected_skill_files_exist(self) -> None:
-        skill_dir = SKILLS_DIR / "global-ai-agent-radar"
-        missing = sorted(
-            relative_path
-            for relative_path in REQUIRED_FILES
-            if not (skill_dir / relative_path).is_file()
+def load_validator_module():
+    """从仓库路径加载待测脚本，避免要求 tools 成为 Python 包。"""
+
+    spec = importlib.util.spec_from_file_location("validate_all_skills_under_test", VALIDATOR_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("无法加载 tools/validate_all_skills.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+validator = load_validator_module()
+
+VALID_SKILL = """---
+name: sample-skill
+description: 用于自动化测试的示例 Skill。
+---
+
+# 示例 Skill
+
+## 目标
+
+验证结构。
+
+## 适用场景
+
+用于测试。
+
+## 不适用场景
+
+不用于生产。
+
+## 输入与默认值
+
+使用默认输入。
+
+## 需要按需读取的参考文件
+
+按需读取。
+
+## 执行工作流
+
+执行确定性步骤。
+
+## 输出要求
+
+输出测试结果。
+
+## 硬性工作规范
+
+不得访问网络。
+
+## 完成前质量检查
+
+运行测试。
+"""
+
+WATCHLIST_ROW = (
+    "sample-project",
+    "Sample Project",
+    "project",
+    "开源新项目",
+    "全球",
+    "用于测试观察池校验",
+    "https://example.com/sample",
+    "primary",
+    "medium",
+    "active",
+    "",
+    "明确的测试数据",
+)
+
+
+class TemporarySkillRepository:
+    """为每个测试创建隔离且可重复的最小 Skill 仓库。"""
+
+    def __init__(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary_directory.name)
+        self.skill_dir = self.root / ".agents" / "skills" / "sample-skill"
+        self.skill_dir.mkdir(parents=True)
+        self.skill_file = self.skill_dir / "SKILL.md"
+        self.skill_file.write_text(VALID_SKILL, encoding="utf-8")
+
+    def close(self) -> None:
+        self.temporary_directory.cleanup()
+
+    def write_watchlist(
+        self,
+        rows: list[tuple[str, ...]],
+        *,
+        header: tuple[str, ...] | None = None,
+    ) -> Path:
+        assets = self.skill_dir / "assets"
+        assets.mkdir(exist_ok=True)
+        path = assets / "watchlist.csv"
+        buffer = io.StringIO(newline="")
+        writer = csv.writer(buffer, lineterminator="\n")
+        writer.writerow(header or validator.WATCHLIST_HEADER)
+        writer.writerows(rows)
+        path.write_text(buffer.getvalue(), encoding="utf-8")
+        return path
+
+
+class RepositoryTestCase(unittest.TestCase):
+    """提供临时仓库生命周期和常用断言。"""
+
+    repository: TemporarySkillRepository
+
+    def setUp(self) -> None:
+        self.repository = TemporarySkillRepository()
+
+    def tearDown(self) -> None:
+        self.repository.close()
+
+    def validate(self):
+        return validator.validate_repository(self.repository.root)
+
+    def assert_has_error(self, report, fragment: str) -> None:
+        messages = "\n".join(issue.render() for issue in report.errors)
+        self.assertIn(fragment, messages, messages)
+
+
+class SkillStructureTests(RepositoryTestCase):
+    def test_current_repository_skills_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            copied_root = Path(temporary_directory)
+            shutil.copytree(
+                ROOT / ".agents",
+                copied_root / ".agents",
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            )
+            report = validator.validate_repository(copied_root)
+        self.assertTrue(
+            report.is_valid,
+            "\n".join(issue.render() for issue in report.errors),
         )
-        self.assertEqual([], missing)
 
-    def test_every_skill_has_skill_md(self) -> None:
-        skill_dirs = sorted(path for path in SKILLS_DIR.iterdir() if path.is_dir())
-        self.assertTrue(skill_dirs, "expected at least one Skill")
-        for skill_dir in skill_dirs:
-            with self.subTest(skill=skill_dir.name):
-                self.assertTrue((skill_dir / "SKILL.md").is_file())
+    def test_missing_skill_file_fails(self) -> None:
+        self.repository.skill_file.unlink()
+        report = self.validate()
+        self.assert_has_error(report, "缺少入口文件 SKILL.md")
+
+    def test_empty_skill_file_fails(self) -> None:
+        self.repository.skill_file.write_text("", encoding="utf-8")
+        report = self.validate()
+        self.assert_has_error(report, "Markdown 文件不得为空")
+
+    def test_frontmatter_without_name_fails(self) -> None:
+        content = VALID_SKILL.replace("name: sample-skill\n", "")
+        self.repository.skill_file.write_text(content, encoding="utf-8")
+        report = self.validate()
+        self.assert_has_error(report, "缺少非空字段 name")
+
+    def test_frontmatter_without_description_fails(self) -> None:
+        content = VALID_SKILL.replace("description: 用于自动化测试的示例 Skill。\n", "")
+        self.repository.skill_file.write_text(content, encoding="utf-8")
+        report = self.validate()
+        self.assert_has_error(report, "缺少非空字段 description")
+
+    def test_frontmatter_name_mismatch_fails(self) -> None:
+        content = VALID_SKILL.replace("name: sample-skill", "name: another-skill")
+        self.repository.skill_file.write_text(content, encoding="utf-8")
+        report = self.validate()
+        self.assert_has_error(report, "与目录名 sample-skill 不一致")
+
+    def test_missing_required_section_fails(self) -> None:
+        content = VALID_SKILL.replace("## 目标", "## 概览")
+        self.repository.skill_file.write_text(content, encoding="utf-8")
+        report = self.validate()
+        self.assert_has_error(report, "缺少必需语义章节：目标")
+
+    def test_missing_local_reference_fails(self) -> None:
+        content = VALID_SKILL + "\n[缺失规则](references/missing.md)\n"
+        self.repository.skill_file.write_text(content, encoding="utf-8")
+        report = self.validate()
+        self.assert_has_error(report, "本地引用不存在")
+
+    def test_parent_reference_escaping_skill_fails(self) -> None:
+        outside = self.repository.root / ".agents" / "outside.md"
+        outside.write_text("测试文件", encoding="utf-8")
+        content = VALID_SKILL + "\n[越界文件](../../outside.md)\n"
+        self.repository.skill_file.write_text(content, encoding="utf-8")
+        report = self.validate()
+        self.assert_has_error(report, "本地引用逃逸 Skill 目录")
+
+    def test_remote_url_and_page_anchor_are_ignored(self) -> None:
+        content = VALID_SKILL + "\n[官网](https://example.com/docs) [章节](#目标)\n"
+        self.repository.skill_file.write_text(content, encoding="utf-8")
+        report = self.validate()
+        self.assertTrue(report.is_valid, "\n".join(issue.render() for issue in report.errors))
+
+    def test_gitignored_python_caches_do_not_fail_validation(self) -> None:
+        (self.repository.root / ".gitignore").write_text(
+            "__pycache__/\n*.py[cod]\n",
+            encoding="utf-8",
+        )
+        for parent in (
+            self.repository.root / "tools",
+            self.repository.root / "tests",
+            self.repository.skill_dir / "scripts",
+        ):
+            cache_dir = parent / "__pycache__"
+            cache_dir.mkdir(parents=True)
+            (cache_dir / "module.cpython-311.pyc").write_bytes(b"test bytecode placeholder")
+        report = self.validate()
+        self.assertTrue(report.is_valid, "\n".join(issue.render() for issue in report.errors))
+
+    def test_unignored_python_cache_fails_validation(self) -> None:
+        cache_dir = self.repository.root / "tools" / "__pycache__"
+        cache_dir.mkdir(parents=True)
+        (cache_dir / "module.cpython-311.pyc").write_bytes(b"test bytecode placeholder")
+        report = self.validate()
+        self.assert_has_error(report, "未被 .gitignore 排除的 __pycache__")
+
+
+class WatchlistTests(RepositoryTestCase):
+    def test_valid_watchlist_passes(self) -> None:
+        self.repository.write_watchlist([WATCHLIST_ROW])
+        report = self.validate()
+        self.assertTrue(report.is_valid, "\n".join(issue.render() for issue in report.errors))
+
+    def test_wrong_header_fails(self) -> None:
+        wrong_header = validator.WATCHLIST_HEADER[:-1]
+        self.repository.write_watchlist([WATCHLIST_ROW[:-1]], header=wrong_header)
+        report = self.validate()
+        self.assert_has_error(report, "CSV 表头")
+
+    def test_duplicate_entity_id_fails(self) -> None:
+        second_row = list(WATCHLIST_ROW)
+        second_row[1] = "Another Project"
+        self.repository.write_watchlist([WATCHLIST_ROW, tuple(second_row)])
+        report = self.validate()
+        self.assert_has_error(report, "entity_id 重复")
+
+    def test_invalid_entity_type_fails(self) -> None:
+        row = list(WATCHLIST_ROW)
+        row[2] = "service"
+        self.repository.write_watchlist([tuple(row)])
+        report = self.validate()
+        self.assert_has_error(report, "entity_type 枚举值无效")
+
+    def test_invalid_tracking_priority_fails(self) -> None:
+        row = list(WATCHLIST_ROW)
+        row[8] = "urgent"
+        self.repository.write_watchlist([tuple(row)])
+        report = self.validate()
+        self.assert_has_error(report, "tracking_priority 枚举值无效")
+
+    def test_invalid_status_fails(self) -> None:
+        row = list(WATCHLIST_ROW)
+        row[9] = "archived"
+        self.repository.write_watchlist([tuple(row)])
+        report = self.validate()
+        self.assert_has_error(report, "status 枚举值无效")
+
+    def test_invalid_url_fails(self) -> None:
+        row = list(WATCHLIST_ROW)
+        row[6] = "ftp://example.com/sample"
+        self.repository.write_watchlist([tuple(row)])
+        report = self.validate()
+        self.assert_has_error(report, "official_url")
+
+    def test_invalid_last_reviewed_fails(self) -> None:
+        row = list(WATCHLIST_ROW)
+        row[10] = "2026-02-30"
+        self.repository.write_watchlist([tuple(row)])
+        report = self.validate()
+        self.assert_has_error(report, "last_reviewed")
+
+    def test_removed_without_notes_warns(self) -> None:
+        row = list(WATCHLIST_ROW)
+        row[9] = "removed"
+        row[11] = ""
+        self.repository.write_watchlist([tuple(row)])
+        report = self.validate()
+        self.assertTrue(report.is_valid)
+        warnings = "\n".join(issue.render() for issue in report.warnings)
+        self.assertIn("removed 状态条目的 notes", warnings)
+
+
+class SensitiveInformationTests(RepositoryTestCase):
+    def test_ordinary_text_does_not_trigger_secret_scan(self) -> None:
+        (self.repository.root / "README.md").write_text(
+            "文档可以讨论 API Key，但这里没有任何凭据值。",
+            encoding="utf-8",
+        )
+        report = validator.ValidationReport()
+        validator.scan_sensitive_information(self.repository.root, report)
+        self.assertFalse(report.errors)
+
+    def test_high_confidence_credential_pattern_is_detected(self) -> None:
+        fake_test_key = "AKIA" + "Z" * 16
+        (self.repository.root / "credential-test-data.txt").write_text(
+            f"仅用于自动化测试，不是真实凭据：{fake_test_key}\n",
+            encoding="utf-8",
+        )
+        report = validator.ValidationReport()
+        validator.scan_sensitive_information(self.repository.root, report)
+        self.assertTrue(report.errors)
+        self.assertIn("AWS access key", report.errors[0].message)
+
+    def test_secret_output_is_redacted(self) -> None:
+        fake_test_key = "AKIA" + "Y" * 16
+        (self.repository.root / "credential-test-data.txt").write_text(
+            f"TEST DATA ONLY: {fake_test_key}\n",
+            encoding="utf-8",
+        )
+        report = validator.ValidationReport()
+        validator.scan_sensitive_information(self.repository.root, report)
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            validator.print_report(report)
+        output = stdout.getvalue() + stderr.getvalue()
+        self.assertNotIn(fake_test_key, output)
+        self.assertIn("…", output)
+
+    def test_git_and_cache_directories_are_ignored_by_secret_scan(self) -> None:
+        fake_test_key = "AKIA" + "X" * 16
+        git_dir = self.repository.root / ".git"
+        cache_dir = self.repository.root / "__pycache__"
+        git_dir.mkdir()
+        cache_dir.mkdir()
+        (git_dir / "secret.txt").write_text(fake_test_key, encoding="utf-8")
+        (cache_dir / "secret.txt").write_text(fake_test_key, encoding="utf-8")
+        report = validator.ValidationReport()
+        validator.scan_sensitive_information(self.repository.root, report)
+        self.assertFalse(report.errors)
 
 
 if __name__ == "__main__":
