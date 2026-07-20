@@ -1,8 +1,8 @@
 # 全球 AI Agent 增量雷达
 
-> 使用说明：根据是否存在 24–30 分的重点事件选择模式 A 或模式 B，删除未使用的模式和无内容章节。不要为了保持形式完整而填充低价值事件。事实、证据、推断和建议必须分别书写。
+> 使用说明：存在总分 24–30 分且信息可信度至少 3 分的事件时选择模式 A，否则选择“无重点事件模式”。删除未使用的模式和无内容章节。不要为了保持形式完整而填充低价值事件。事实、证据、推断和建议必须分别书写。
 
-## 模式 A：有重大变化
+## 模式 A：有重点事件
 
 ### 报告信息
 
@@ -73,15 +73,44 @@
 
 #### {{event_name}}
 
-- **事件与增量**：{{confirmed_fact_and_increment}}
-- **证据与可信度**：{{evidence_links_and_confidence}}
-- **评分**：{{total_score}} / 30
-- **影响与边界**：{{material_impact_and_limits}}
-- **后续指标**：{{verifiable_metrics}}
+- **事件发生时间**：{{event_time}}
+- **信息发布时间**：{{publication_time}}
+- **总评分**：{{total_score}} / 30
+- **信息可信度**：{{confidence_score}} / 5
+
+**已确认事实**
+
+{{confirmed_fact}}
+
+**证据**
+
+- {{evidence_type_and_direct_link}}
+
+**真正增量**
+
+{{increment_over_previous_state}}
+
+**分析推断**
+
+{{material_impact_and_limits}}
+
+**风险与不确定性**
+
+- {{risk_or_evidence_limit}}
+
+**行动建议**
+
+- {{audience}}：{{bounded_action_or_no_action_reason}}
+
+**后续观察指标**
+
+- {{verifiable_metric_with_source_and_timeframe}}
 
 <!-- 没有 18–23 分的一般重要事件时删除本节。 -->
 
-### 观察池调整
+### 观察池调整建议
+
+<!-- 研究模式只输出建议，不修改 watchlist.csv。 -->
 
 - **升级**：{{entity_and_evidence_based_reason_or_none}}
 - **降级**：{{entity_and_evidence_based_reason_or_none}}
@@ -106,7 +135,7 @@
 
 ---
 
-## 模式 B：没有重大变化
+## 模式 B：无重点事件模式
 
 ### 报告信息
 
@@ -121,6 +150,45 @@
 
 {{说明没有重点事件的原因，例如候选项总分不足、可信度不足或只是旧闻重发。不要加入低价值新闻填充。}}
 
+### 一般重要事件
+
+#### {{event_name}}
+
+- **事件发生时间**：{{event_time}}
+- **信息发布时间**：{{publication_time}}
+- **总评分**：{{total_score}} / 30
+- **信息可信度**：{{confidence_score}} / 5
+
+**已确认事实**
+
+{{confirmed_fact}}
+
+**证据**
+
+- {{evidence_type_and_direct_link}}
+
+**真正增量**
+
+{{increment_over_previous_state}}
+
+**分析推断**
+
+{{material_impact_and_limits}}
+
+**风险与不确定性**
+
+- {{risk_or_evidence_limit}}
+
+**行动建议**
+
+- {{audience}}：{{bounded_action_or_no_action_reason}}
+
+**后续观察指标**
+
+- {{verifiable_metric_with_source_and_timeframe}}
+
+<!-- 仅列入总分 18–23 分且信息可信度至少 3 分的事件；没有时删除本节。 -->
+
 ### 未达到收录阈值的观察信号
 
 #### {{signal_name}}
@@ -131,9 +199,11 @@
 - **未收录原因**：{{threshold_or_confidence_reason}}
 - **待验证条件**：{{specific_verification_conditions}}
 
-<!-- 没有值得保留的观察信号时删除本节。 -->
+<!-- 仅保留值得继续验证但未达到一般重要事件门槛的信号；没有时删除本节。 -->
 
-### 观察池状态
+### 观察池状态与调整建议
+
+<!-- 研究模式只输出建议，不修改 watchlist.csv。 -->
 
 - **升级**：{{none_or_entities}}
 - **降级**：{{none_or_entities}}
