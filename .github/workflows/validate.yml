@@ -17,6 +17,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check committed whitespace
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          zero_sha="0000000000000000000000000000000000000000"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git diff --check "$PR_BASE_SHA...$HEAD_SHA"
+          elif [ -z "$PUSH_BEFORE_SHA" ] || [ "$PUSH_BEFORE_SHA" = "$zero_sha" ] || \
+               ! git cat-file -e "$PUSH_BEFORE_SHA^{commit}" 2>/dev/null; then
+            git show --check --format= "$HEAD_SHA"
+          else
+            git diff --check "$PUSH_BEFORE_SHA..$HEAD_SHA"
+          fi
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -32,30 +51,46 @@ jobs:
       - name: Compile Python sources
         run: |
           python3 -m compileall \
+            skill_framework \
+            plugins \
             tools \
             tests \
-            .agents/skills/global-ai-agent-radar/scripts
+            .agents/skills
 
-      - name: Package global-ai-agent-radar
+      - name: Package all Skills
         run: |
-          python3 tools/package_skill.py \
-            global-ai-agent-radar \
-            --output-dir dist
+          mapfile -t skills < <(
+            find .agents/skills -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort
+          )
+          test "${#skills[@]}" -gt 0
+          for skill in "${skills[@]}"; do
+            python3 tools/package_skill.py "$skill" --output-dir dist
+          done
 
-      - name: Verify ZIP archive
+      - name: Verify all ZIP archives
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          from zipfile import ZipFile
 
-          archive_path = Path("dist/global-ai-agent-radar.zip")
-          with ZipFile(archive_path) as archive:
-              assert archive.testzip() is None, "ZIP 中存在损坏文件"
-              names = archive.namelist()
-              assert names, "ZIP 不得为空"
-              assert {name.split("/", 1)[0] for name in names} == {
-                  "global-ai-agent-radar"
-              }, "ZIP 必须只有一个正确命名的顶层目录"
-              assert "global-ai-agent-radar/SKILL.md" in names, "ZIP 缺少 SKILL.md"
-          print(f"ZIP 校验通过：{archive_path}")
+          from skill_framework.packaging import validate_skill_archive
+
+          skill_names = sorted(
+              path.name for path in Path(".agents/skills").iterdir() if path.is_dir()
+          )
+          assert skill_names, "未发现任何 Skill"
+          for skill_name in skill_names:
+              archive_path = Path("dist") / f"{skill_name}.zip"
+              assert archive_path.is_file(), f"缺少 ZIP：{archive_path}"
+              validate_skill_archive(archive_path, skill_name)
+              print(f"ZIP 校验通过：{archive_path}")
           PY
+
+      - name: Verify build leaves clean working tree
+        run: |
+          git diff --check
+          status="$(git status --porcelain --untracked-files=all)"
+          if [ -n "$status" ]; then
+            echo "构建后工作区存在意外修改："
+            git status --short
+            exit 1
+          fi

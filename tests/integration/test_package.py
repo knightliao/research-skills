@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
-import io
 import json
 import os
 import subprocess
@@ -12,11 +10,12 @@ import sys
 import tempfile
 import unittest
 import zipfile
-from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path, PurePosixPath
 
+from skill_framework import packaging as package_tool
+from tests.repository_fixture import copy_repository_fixture
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_TOOL_PATH = ROOT / "tools" / "package_skill.py"
 EVENT_VALIDATOR_PATH = (
     ROOT
@@ -27,20 +26,6 @@ EVENT_VALIDATOR_PATH = (
     / "validate_events.py"
 )
 
-
-def load_package_module():
-    """从仓库路径加载打包工具。"""
-
-    spec = importlib.util.spec_from_file_location("package_skill_under_test", PACKAGE_TOOL_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("无法加载 tools/package_skill.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-package_tool = load_package_module()
 
 VALID_SKILL = """---
 name: sample-skill
@@ -146,6 +131,13 @@ class PackageSkillTests(unittest.TestCase):
                 snapshot[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
         return snapshot
 
+    def write_test_archive(self, names: tuple[str, ...]) -> Path:
+        self.repository.output_dir.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(self.repository.output_path, "w") as archive:
+            for index, name in enumerate(names):
+                archive.writestr(name, f"test archive member {index}")
+        return self.repository.output_path
+
     def test_valid_skill_can_be_packaged(self) -> None:
         result = self.repository.package()
         self.assertEqual(self.repository.output_path.resolve(), result.output_path)
@@ -213,49 +205,163 @@ class PackageSkillTests(unittest.TestCase):
         self.assertFalse(self.repository.output_path.exists())
 
     def test_missing_skill_name_returns_nonzero(self) -> None:
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-        with redirect_stdout(stdout), redirect_stderr(stderr):
-            exit_code = package_tool.main(
-                [
-                    "missing-skill",
-                    "--repository",
-                    str(self.repository.root),
-                    "--output-dir",
-                    str(self.repository.output_dir),
-                ]
-            )
-        self.assertNotEqual(0, exit_code)
-        self.assertIn("Skill 不存在", stderr.getvalue())
+        process = subprocess.run(
+            [
+                sys.executable,
+                str(PACKAGE_TOOL_PATH),
+                "missing-skill",
+                "--repository",
+                str(self.repository.root),
+                "--output-dir",
+                str(self.repository.output_dir),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(0, process.returncode)
+        self.assertIn("Skill 不存在", process.stderr)
 
     def test_skill_option_form_can_package(self) -> None:
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-        with redirect_stdout(stdout), redirect_stderr(stderr):
-            exit_code = package_tool.main(
-                [
-                    "--skill",
-                    self.repository.skill_name,
-                    "--repository",
-                    str(self.repository.root),
-                    "--output-dir",
-                    str(self.repository.output_dir),
-                ]
-            )
-        self.assertEqual(0, exit_code, stderr.getvalue())
+        process = subprocess.run(
+            [
+                sys.executable,
+                str(PACKAGE_TOOL_PATH),
+                "--skill",
+                self.repository.skill_name,
+                "--repository",
+                str(self.repository.root),
+                "--output-dir",
+                str(self.repository.output_dir),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(0, process.returncode, process.stderr)
         self.assertTrue(self.repository.output_path.exists())
-        self.assertIn("文件数量：5", stdout.getvalue())
+        self.assertIn("文件数量：5", process.stdout)
 
     def test_archive_can_be_read_by_zipfile(self) -> None:
         self.repository.package()
         with zipfile.ZipFile(self.repository.output_path) as archive:
             self.assertIsNone(archive.testzip())
 
+    def test_valid_archive_passes_shared_archive_validation(self) -> None:
+        self.repository.package()
+        names = package_tool.validate_skill_archive(
+            self.repository.output_path,
+            self.repository.skill_name,
+        )
+        self.assertIn("sample-skill/SKILL.md", names)
+
+    def test_archive_with_wrong_top_level_fails_validation(self) -> None:
+        archive_path = self.write_test_archive(("wrong-skill/SKILL.md",))
+        with self.assertRaisesRegex(package_tool.PackageError, "目标 Skill 顶层目录"):
+            package_tool.validate_skill_archive(archive_path, self.repository.skill_name)
+
+    def test_archive_without_skill_entry_fails_validation(self) -> None:
+        archive_path = self.write_test_archive(("sample-skill/references/rule.md",))
+        with self.assertRaisesRegex(package_tool.PackageError, "缺少 Skill 入口文件"):
+            package_tool.validate_skill_archive(archive_path, self.repository.skill_name)
+
+    def test_archive_with_second_top_level_fails_validation(self) -> None:
+        archive_path = self.write_test_archive(
+            ("sample-skill/SKILL.md", "other-skill/file.md")
+        )
+        with self.assertRaisesRegex(package_tool.PackageError, "目标 Skill 顶层目录"):
+            package_tool.validate_skill_archive(archive_path, self.repository.skill_name)
+
+    def test_archive_with_repository_infrastructure_fails_validation(self) -> None:
+        for forbidden_name in sorted(package_tool.FORBIDDEN_ARCHIVE_TOP_LEVEL_NAMES):
+            with self.subTest(forbidden_name=forbidden_name):
+                archive_path = self.write_test_archive(
+                    (
+                        "sample-skill/SKILL.md",
+                        f"sample-skill/{forbidden_name}/test-file.py",
+                    )
+                )
+                with self.assertRaisesRegex(package_tool.PackageError, "仓库设施目录"):
+                    package_tool.validate_skill_archive(
+                        archive_path,
+                        self.repository.skill_name,
+                    )
+
+    def test_archive_with_unsafe_member_path_fails_validation(self) -> None:
+        for unsafe_name in ("/sample-skill/SKILL.md", "sample-skill/../outside.md"):
+            with self.subTest(unsafe_name=unsafe_name):
+                archive_path = self.write_test_archive(
+                    ("sample-skill/SKILL.md", unsafe_name)
+                )
+                with self.assertRaisesRegex(package_tool.PackageError, "路径不安全"):
+                    package_tool.validate_skill_archive(
+                        archive_path,
+                        self.repository.skill_name,
+                    )
+
+    def test_archive_validation_failure_does_not_overwrite_existing_output(self) -> None:
+        self.repository.output_dir.mkdir(parents=True)
+        original_content = b"existing archive placeholder"
+        self.repository.output_path.write_bytes(original_content)
+        forbidden_file = self.repository.skill_dir / "tests" / "test_example.py"
+        forbidden_file.parent.mkdir()
+        forbidden_file.write_text("# test repository infrastructure\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(package_tool.PackageError, "仓库设施目录"):
+            self.repository.package()
+        self.assertEqual(original_content, self.repository.output_path.read_bytes())
+
     def test_packaging_does_not_modify_source_skill(self) -> None:
         before = self.source_snapshot()
         self.repository.package()
         after = self.source_snapshot()
         self.assertEqual(before, after)
+
+    def test_unrelated_broken_plugin_does_not_block_target_package(self) -> None:
+        plugins = self.repository.root / "plugins"
+        plugins.mkdir()
+        (plugins / "unrelated_skill.py").write_text(
+            "raise RuntimeError('TEST UNRELATED BROKEN PLUGIN')\n",
+            encoding="utf-8",
+        )
+        result = self.repository.package()
+        self.assertTrue(result.output_path.is_file())
+
+    def test_target_plugin_failure_prevents_archive(self) -> None:
+        plugins = self.repository.root / "plugins"
+        plugins.mkdir()
+        (plugins / "sample_skill.py").write_text(
+            """from skill_framework.models import Issue, ValidationResult
+PLUGIN_API_VERSION = 1
+SKILL_NAME = "sample-skill"
+def validate(context):
+    return ValidationResult(errors=(Issue("sample.failure", "SKILL.md", "测试失败"),))
+""",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(package_tool.PackageError, "sample.failure"):
+            self.repository.package()
+        self.assertFalse(self.repository.output_path.exists())
+
+    def test_package_cli_runs_from_outside_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as other_directory:
+            process = subprocess.run(
+                [
+                    sys.executable,
+                    str(PACKAGE_TOOL_PATH),
+                    self.repository.skill_name,
+                    "--repository",
+                    str(self.repository.root),
+                    "--output-dir",
+                    str(self.repository.output_dir),
+                ],
+                cwd=other_directory,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(0, process.returncode, process.stderr)
+        self.assertTrue(self.repository.output_path.is_file())
 
     @unittest.skipUnless(hasattr(os, "symlink"), "平台不支持符号链接")
     def test_external_symlink_prevents_archive(self) -> None:
@@ -268,6 +374,45 @@ class PackageSkillTests(unittest.TestCase):
 
 
 class EndToEndSmokeTests(unittest.TestCase):
+    def test_all_repository_skills_can_be_discovered_and_packaged(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repository_root = Path(temporary_directory) / "repository"
+            copy_repository_fixture(ROOT, repository_root)
+            skill_dirs = sorted(
+                path for path in (repository_root / ".agents" / "skills").iterdir() if path.is_dir()
+            )
+            self.assertTrue(skill_dirs)
+            output_dir = Path(temporary_directory) / "dist"
+            for skill_dir in skill_dirs:
+                result = package_tool.package_skill(
+                    skill_dir.name,
+                    repository_root=repository_root,
+                    output_dir=output_dir,
+                )
+                names = package_tool.validate_skill_archive(result.output_path, skill_dir.name)
+                self.assertIn(f"{skill_dir.name}/SKILL.md", names)
+
+    def test_validate_cli_runs_from_outside_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_path = Path(temporary_directory)
+            repository_root = temporary_path / "repository"
+            other_directory = temporary_path / "outside"
+            other_directory.mkdir()
+            copy_repository_fixture(ROOT, repository_root)
+            process = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "tools" / "validate_all_skills.py"),
+                    str(repository_root),
+                ],
+                cwd=other_directory,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(0, process.returncode, process.stderr)
+        self.assertIn("校验通过", process.stdout)
+
     def test_global_radar_validation_and_packaging_smoke(self) -> None:
         valid_event = {
             "title": "ExampleAI 虚构 Agent 工作流更新",
@@ -295,6 +440,8 @@ class EndToEndSmokeTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             temporary_path = Path(temporary_directory)
+            repository_root = temporary_path / "repository"
+            copy_repository_fixture(ROOT, repository_root)
             valid_path = temporary_path / "valid-events.json"
             invalid_path = temporary_path / "invalid-events.json"
             valid_path.write_text(json.dumps(valid_event, ensure_ascii=False), encoding="utf-8")
@@ -315,7 +462,11 @@ class EndToEndSmokeTests(unittest.TestCase):
                 check=False,
             )
             repository_process = subprocess.run(
-                [sys.executable, str(ROOT / "tools" / "validate_all_skills.py"), str(ROOT)],
+                [
+                    sys.executable,
+                    str(ROOT / "tools" / "validate_all_skills.py"),
+                    str(repository_root),
+                ],
                 cwd=ROOT,
                 capture_output=True,
                 text=True,
@@ -323,7 +474,7 @@ class EndToEndSmokeTests(unittest.TestCase):
             )
             package_result = package_tool.create_skill_archive(
                 "global-ai-agent-radar",
-                repository_root=ROOT,
+                repository_root=repository_root,
                 output_dir=temporary_path / "dist",
             )
 
