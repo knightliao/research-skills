@@ -1,0 +1,45 @@
+#!/bin/sh
+
+set -eu
+
+REPOSITORY_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPOSITORY_ROOT"
+
+echo "开始执行推送前校验……"
+
+# 避免测试的是工作区内容，实际推送的却是另一个提交状态。
+if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+    echo "拒绝推送：当前工作区不干净。"
+    echo "请先提交或恢复以下修改："
+    git status --short
+    exit 1
+fi
+
+echo "1/4 运行单元测试"
+python3 -m unittest discover -s tests -v
+
+echo "2/4 校验全部 Skill"
+python3 tools/validate_all_skills.py .
+
+echo "3/4 编译检查"
+python3 -m compileall -q \
+    skill_framework \
+    plugins \
+    tools \
+    tests \
+    .agents/skills
+
+echo "4/4 打包全部 Skill"
+for skill_dir in .agents/skills/*; do
+    if [ ! -d "$skill_dir" ]; then
+        continue
+    fi
+
+    skill_name="$(basename "$skill_dir")"
+
+    python3 tools/package_skill.py \
+        "$skill_name" \
+        --output-dir dist
+done
+
+echo "推送前校验全部通过。"

@@ -96,8 +96,18 @@ def validate_forbidden_paths(root: Path) -> ValidationResult:
             directory_names.remove("__pycache__")
         for file_name in sorted(file_names):
             path = current_path / file_name
-            if file_name == ".DS_Store":
-                errors.append(Issue(codes.PATH_DS_STORE, relative_path(path, root), "不允许存在 .DS_Store"))
+            if file_name == ".DS_Store" and not is_gitignored_generated_path(
+                path,
+                root,
+                rules,
+            ):
+                errors.append(
+                    Issue(
+                        codes.PATH_DS_STORE,
+                        relative_path(path, root),
+                        "不允许存在未被 .gitignore 排除的 .DS_Store",
+                    )
+                )
             elif file_name.endswith(".pyc") and not is_gitignored_generated_path(path, root, rules):
                 errors.append(
                     Issue(
