@@ -4,6 +4,8 @@
 
 每个 `.agents/skills/<skill-name>/` 都是独立 Skill，必须包含 `SKILL.md` 并保持自包含。Skill 的运行时引用、本地链接和脚本依赖不得指向该 Skill 目录之外。
 
+仓库采用四层架构：`skill_framework/` 提供完全通用的内核，`plugins/` 承载 Skill 专属校验，`tools/` 只保留 CLI，`tests/` 按框架、插件、Skill 和集成场景分层。插件是仓库开发期扩展，不进入 Skill ZIP，也不是 Skill 运行时依赖。
+
 ## 当前 Skill
 
 ### global-ai-agent-radar
@@ -24,10 +26,16 @@
 │       ├── assets/
 │       └── scripts/
 ├── .github/workflows/validate.yml
+├── skill_framework/        # 通用发现、校验、安全与打包内核
+├── plugins/                # Skill 专属静态校验插件
 ├── tools/
 │   ├── package_skill.py
 │   └── validate_all_skills.py
 ├── tests/
+│   ├── framework/
+│   ├── plugins/
+│   ├── skills/
+│   └── integration/
 ├── AGENTS.md
 └── README.md
 ```
@@ -36,7 +44,7 @@
 
 ## 本地校验与测试
 
-校验全部 Skill 的目录、frontmatter、本地引用、观察池、脚本依赖、敏感信息和路径规范：
+校验全部 Skill 的通用结构、安全规则及已注册专属插件：
 
 ```bash
 python3 tools/validate_all_skills.py .
@@ -52,10 +60,14 @@ python3 -m unittest discover -s tests -v
 
 ```bash
 python3 -m compileall \
+  skill_framework \
+  plugins \
   tools \
   tests \
-  .agents/skills/global-ai-agent-radar/scripts
+  .agents/skills
 ```
+
+校验输出中的每条错误和警告都包含稳定的英文 `code`，便于 CI、编辑器或后续 API 按类别处理；中文消息用于定位动态详情。
 
 ## 校验研究事件 JSON
 
@@ -88,7 +100,7 @@ python3 tools/package_skill.py \
   --output-dir dist
 ```
 
-打包前会复用仓库级 Skill 校验逻辑。校验失败、Skill 不存在或缺少 `SKILL.md` 时不会生成 ZIP。同名输出使用临时文件安全覆盖，源 Skill 不会被修改。
+打包前会执行通用校验、安全扫描，并只导入目标 Skill 对应的插件。其他 Skill 的插件即使损坏，也不会阻塞定向打包；完整仓库校验和 CI 仍会发现该问题。校验失败、Skill 不存在或缺少 `SKILL.md` 时不会生成或覆盖正式 ZIP。同名输出使用临时文件原子覆盖，源 Skill 不会被修改。
 
 ZIP 只有一个顶层目录：
 
@@ -103,6 +115,8 @@ global-ai-agent-radar.zip
 ```
 
 缓存、`.DS_Store`、Git 元数据、IDE 配置和临时编辑器文件不会进入 ZIP。`dist/` 是本地构建输出，不进入 Git。
+
+`skill_framework/`、`plugins/`、`tools/` 和 `tests/` 都属于仓库开发设施，不会进入 Skill ZIP。
 
 ## 维护观察池
 
@@ -123,7 +137,12 @@ global-ai-agent-radar.zip
 2. 创建带有 `name` 和 `description` frontmatter 的 `SKILL.md`，并确保 `name` 与目录名一致。
 3. 按需增加 `references/`、`examples/`、`assets/` 和 `scripts/`；不要在 Skill 内新增 README。
 4. 保证所有运行时文件和本地引用都位于该 Skill 目录内，脚本只处理确定性任务。
-5. 为新增行为补充 `unittest` 测试，然后运行仓库校验、测试、打包和 `git diff --check`。
+5. 如果只有通用约束，不需要新增插件；仓库校验和 CI 会自动发现并打包该 Skill。
+6. 如果有专属数据契约，在 `plugins/<skill_name>.py` 实现 `PLUGIN_API_VERSION = 1`、`SKILL_NAME` 和返回独立 `ValidationResult` 的 `validate(context)`；插件不得修改文件或访问网络。
+7. 通用测试放入 `tests/framework/`，插件测试放入 `tests/plugins/`，Skill 运行时测试放入 `tests/skills/<skill_name>/`，端到端测试放入 `tests/integration/`。
+8. 运行仓库校验、全部测试、目标打包、`compileall` 和 `git diff --check`。
+
+插件文件名使用 Skill 名称将连字符替换为下划线后的形式，例如 `global-ai-agent-radar` 对应 `plugins/global_ai_agent_radar.py`。仓库级校验会全量发现插件并报告失效或孤立插件；定向打包只加载目标插件。
 
 ## Git 提交建议
 
@@ -141,7 +160,9 @@ global-ai-agent-radar.zip
 
 ## 第一版已知限制
 
-- 当前只有 `global-ai-agent-radar` 一个 Skill，新增 Skill 后需要同步扩展相应测试和 CI 冒烟范围。
+- 当前只有 `global-ai-agent-radar` 一个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
+- 插件 API 当前版本为 `1`，第一版只提供 `validate` 钩子，不提供自定义打包、发布或 benchmark 生命周期。
+- 插件作为受信任的本地 Python 代码运行，没有进程级沙箱；代码审查必须保证其确定性、无网络且不修改文件。
 - 事件校验支持单个 JSON 对象或 JSON 数组（包括表示空结果的 `[]`），暂不支持 JSON Lines。
 - frontmatter 校验只支持当前仓库使用的扁平 `key: value` 子集，不是完整 YAML 解析器。
 - 本地工具只做确定性校验和打包，不负责联网检索、新闻抓取或研究判断。

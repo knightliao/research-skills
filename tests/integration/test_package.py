@@ -302,6 +302,21 @@ def validate(context):
 
 
 class EndToEndSmokeTests(unittest.TestCase):
+    def test_all_repository_skills_can_be_discovered_and_packaged(self) -> None:
+        skill_dirs = sorted(path for path in (ROOT / ".agents" / "skills").iterdir() if path.is_dir())
+        self.assertTrue(skill_dirs)
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_dir = Path(temporary_directory) / "dist"
+            for skill_dir in skill_dirs:
+                result = package_tool.package_skill(
+                    skill_dir.name,
+                    repository_root=ROOT,
+                    output_dir=output_dir,
+                )
+                with zipfile.ZipFile(result.output_path) as archive:
+                    self.assertIsNone(archive.testzip())
+                    self.assertIn(f"{skill_dir.name}/SKILL.md", archive.namelist())
+
     def test_validate_cli_runs_from_outside_repository(self) -> None:
         with tempfile.TemporaryDirectory() as other_directory:
             process = subprocess.run(
