@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 SKILL_DIR = ROOT / ".agents" / "skills" / "global-ai-agent-radar"
 SKILL_PATH = SKILL_DIR / "SKILL.md"
 TEMPLATE_PATH = SKILL_DIR / "assets" / "report-template.md"

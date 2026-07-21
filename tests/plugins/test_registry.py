@@ -6,10 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from plugins import global_ai_agent_radar as radar_plugin
 from skill_framework import codes
 from skill_framework.models import SkillContext, ValidationResult
 from skill_framework.registry import discover_plugins, load_plugin_for_skill, run_plugin
+from skill_framework.repository import validate_repository
 
 
 VALID_PLUGIN = """from skill_framework.models import ValidationResult
@@ -34,6 +34,15 @@ class PluginRegistryTests(unittest.TestCase):
         path = self.plugin_dir / filename
         path.write_text(content, encoding="utf-8")
         return path
+
+    def write_skill(self, skill_name: str) -> Path:
+        skill_dir = self.root / ".agents" / "skills" / skill_name
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            f"---\nname: {skill_name}\ndescription: 虚构插件测试 Skill。\n---\n\n# 测试\n",
+            encoding="utf-8",
+        )
+        return skill_dir
 
     def test_discovery_order_is_stable(self) -> None:
         self.write_plugin("zeta.py", VALID_PLUGIN.format(skill_name="zeta"))
@@ -91,20 +100,66 @@ class PluginRegistryTests(unittest.TestCase):
         result = run_plugin(loaded.plugin, context)
         self.assertIn(codes.PLUGIN_INVALID_RESULT, {issue.code for issue in result.errors})
 
+    def test_missing_validate_hook_fails(self) -> None:
+        content = VALID_PLUGIN.format(skill_name="sample-skill").replace(
+            "def validate(context):\n    return ValidationResult()\n", ""
+        )
+        self.write_plugin("sample_skill.py", content)
+        loaded = load_plugin_for_skill(self.plugin_dir, "sample-skill")
+        self.assertIn(codes.PLUGIN_INVALID_INTERFACE, {issue.code for issue in loaded.result.errors})
+
+    def test_plugin_execution_exception_is_isolated(self) -> None:
+        content = VALID_PLUGIN.format(skill_name="sample-skill").replace(
+            "return ValidationResult()", "raise RuntimeError('TEST EXECUTION FAILURE')"
+        )
+        self.write_plugin("sample_skill.py", content)
+        loaded = load_plugin_for_skill(self.plugin_dir, "sample-skill")
+        assert loaded.plugin is not None
+        result = run_plugin(
+            loaded.plugin,
+            SkillContext(self.root, self.root / "sample-skill", "sample-skill"),
+        )
+        self.assertIn(codes.PLUGIN_EXECUTION_FAILED, {issue.code for issue in result.errors})
+
+    def test_orphaned_plugin_fails_repository_validation(self) -> None:
+        self.write_skill("existing-skill")
+        self.write_plugin("orphan_skill.py", VALID_PLUGIN.format(skill_name="orphan-skill"))
+        validation = validate_repository(self.root)
+        self.assertIn(codes.PLUGIN_ORPHANED, {issue.code for issue in validation.errors})
+
+    def test_one_broken_plugin_does_not_stop_other_plugin_execution(self) -> None:
+        self.write_skill("broken-skill")
+        self.write_skill("working-skill")
+        self.write_plugin("broken_skill.py", "raise RuntimeError('TEST BROKEN IMPORT')\n")
+        self.write_plugin(
+            "working_skill.py",
+            """from skill_framework.models import Issue, ValidationResult
+PLUGIN_API_VERSION = 1
+SKILL_NAME = "working-skill"
+def validate(context):
+    return ValidationResult(warnings=(Issue("working.checked", "SKILL.md", "已执行"),))
+""",
+        )
+        validation = validate_repository(self.root)
+        self.assertIn(codes.PLUGIN_IMPORT_FAILED, {issue.code for issue in validation.errors})
+        self.assertIn("working.checked", {issue.code for issue in validation.warnings})
+
     def test_plugin_result_is_independent(self) -> None:
         context = SkillContext(
             ROOT,
             ROOT / ".agents" / "skills" / "global-ai-agent-radar",
             "global-ai-agent-radar",
         )
-        first = radar_plugin.validate(context)
-        second = radar_plugin.validate(context)
+        loaded = load_plugin_for_skill(ROOT / "plugins", "global-ai-agent-radar")
+        assert loaded.plugin is not None
+        first = run_plugin(loaded.plugin, context)
+        second = run_plugin(loaded.plugin, context)
         self.assertIsInstance(first, ValidationResult)
         self.assertIsNot(first, second)
         self.assertTrue(first.is_valid, [issue.render() for issue in first.errors])
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 if __name__ == "__main__":

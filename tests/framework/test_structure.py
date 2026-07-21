@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import csv
-import io
 import tempfile
 import unittest
 from pathlib import Path
 
-from plugins import global_ai_agent_radar as radar_plugin
-from skill_framework.models import SkillContext
 from skill_framework.repository import validate_repository
 from skill_framework.security import scan_sensitive_information
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 VALID_SKILL = """---
 name: sample-skill
@@ -59,22 +55,6 @@ description: 用于自动化测试的示例 Skill。
 运行测试。
 """
 
-WATCHLIST_ROW = (
-    "sample-project",
-    "Sample Project",
-    "project",
-    "开源新项目",
-    "全球",
-    "用于测试观察池校验",
-    "https://example.com/sample",
-    "primary",
-    "medium",
-    "active",
-    "",
-    "明确的测试数据",
-)
-
-
 class TemporarySkillRepository:
     """为每个测试创建隔离且可重复的最小 Skill 仓库。"""
 
@@ -88,23 +68,6 @@ class TemporarySkillRepository:
 
     def close(self) -> None:
         self.temporary_directory.cleanup()
-
-    def write_watchlist(
-        self,
-        rows: list[tuple[str, ...]],
-        *,
-        header: tuple[str, ...] | None = None,
-    ) -> Path:
-        assets = self.skill_dir / "assets"
-        assets.mkdir(exist_ok=True)
-        path = assets / "watchlist.csv"
-        buffer = io.StringIO(newline="")
-        writer = csv.writer(buffer, lineterminator="\n")
-        writer.writerow(header or radar_plugin.WATCHLIST_HEADER)
-        writer.writerows(rows)
-        path.write_text(buffer.getvalue(), encoding="utf-8")
-        return path
-
 
 class RepositoryTestCase(unittest.TestCase):
     """提供临时仓库生命周期和常用断言。"""
@@ -161,14 +124,6 @@ class SkillStructureTests(RepositoryTestCase):
         report = self.validate()
         self.assert_has_error(report, "与目录名 sample-skill 不一致")
 
-    def test_missing_required_section_fails(self) -> None:
-        content = VALID_SKILL.replace("## 目标", "## 概览")
-        self.repository.skill_file.write_text(content, encoding="utf-8")
-        report = radar_plugin.validate_skill_semantics(
-            SkillContext(self.repository.root, self.repository.skill_dir, "sample-skill")
-        )
-        self.assert_has_error(report, "缺少必需语义章节：目标")
-
     def test_missing_local_reference_fails(self) -> None:
         content = VALID_SKILL + "\n[缺失规则](references/missing.md)\n"
         self.repository.skill_file.write_text(content, encoding="utf-8")
@@ -211,75 +166,6 @@ class SkillStructureTests(RepositoryTestCase):
         (cache_dir / "module.cpython-311.pyc").write_bytes(b"test bytecode placeholder")
         report = self.validate()
         self.assert_has_error(report, "未被 .gitignore 排除的 __pycache__")
-
-
-class WatchlistTests(RepositoryTestCase):
-    def validate(self):
-        path = self.repository.skill_dir / "assets" / "watchlist.csv"
-        return radar_plugin.validate_watchlist(path, self.repository.root)
-
-    def test_valid_watchlist_passes(self) -> None:
-        self.repository.write_watchlist([WATCHLIST_ROW])
-        report = self.validate()
-        self.assertTrue(report.is_valid, "\n".join(issue.render() for issue in report.errors))
-
-    def test_wrong_header_fails(self) -> None:
-        wrong_header = radar_plugin.WATCHLIST_HEADER[:-1]
-        self.repository.write_watchlist([WATCHLIST_ROW[:-1]], header=wrong_header)
-        report = self.validate()
-        self.assert_has_error(report, "CSV 表头")
-
-    def test_duplicate_entity_id_fails(self) -> None:
-        second_row = list(WATCHLIST_ROW)
-        second_row[1] = "Another Project"
-        self.repository.write_watchlist([WATCHLIST_ROW, tuple(second_row)])
-        report = self.validate()
-        self.assert_has_error(report, "entity_id 重复")
-
-    def test_invalid_entity_type_fails(self) -> None:
-        row = list(WATCHLIST_ROW)
-        row[2] = "service"
-        self.repository.write_watchlist([tuple(row)])
-        report = self.validate()
-        self.assert_has_error(report, "entity_type 枚举值无效")
-
-    def test_invalid_tracking_priority_fails(self) -> None:
-        row = list(WATCHLIST_ROW)
-        row[8] = "urgent"
-        self.repository.write_watchlist([tuple(row)])
-        report = self.validate()
-        self.assert_has_error(report, "tracking_priority 枚举值无效")
-
-    def test_invalid_status_fails(self) -> None:
-        row = list(WATCHLIST_ROW)
-        row[9] = "archived"
-        self.repository.write_watchlist([tuple(row)])
-        report = self.validate()
-        self.assert_has_error(report, "status 枚举值无效")
-
-    def test_invalid_url_fails(self) -> None:
-        row = list(WATCHLIST_ROW)
-        row[6] = "ftp://example.com/sample"
-        self.repository.write_watchlist([tuple(row)])
-        report = self.validate()
-        self.assert_has_error(report, "official_url")
-
-    def test_invalid_last_reviewed_fails(self) -> None:
-        row = list(WATCHLIST_ROW)
-        row[10] = "2026-02-30"
-        self.repository.write_watchlist([tuple(row)])
-        report = self.validate()
-        self.assert_has_error(report, "last_reviewed")
-
-    def test_removed_without_notes_warns(self) -> None:
-        row = list(WATCHLIST_ROW)
-        row[9] = "removed"
-        row[11] = ""
-        self.repository.write_watchlist([tuple(row)])
-        report = self.validate()
-        self.assertTrue(report.is_valid)
-        warnings = "\n".join(issue.render() for issue in report.warnings)
-        self.assertIn("removed 状态条目的 notes", warnings)
 
 
 class SensitiveInformationTests(RepositoryTestCase):

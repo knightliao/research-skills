@@ -14,6 +14,8 @@ from skill_framework.repository import validate_repository_common
 from skill_framework.validator import validate_skill
 
 
+ROOT = Path(__file__).resolve().parents[2]
+
 VALID_SKILL = """---
 name: sample-skill
 description: 通用框架测试使用的虚构 Skill。
