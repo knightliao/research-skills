@@ -3,33 +3,17 @@
 from __future__ import annotations
 
 import csv
-import importlib.util
 import io
-import shutil
-import sys
 import tempfile
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
+from plugins import global_ai_agent_radar as radar_plugin
+from skill_framework.models import SkillContext
+from skill_framework.repository import validate_repository
+from skill_framework.security import scan_sensitive_information
 
 ROOT = Path(__file__).resolve().parents[1]
-VALIDATOR_PATH = ROOT / "tools" / "validate_all_skills.py"
-
-
-def load_validator_module():
-    """从仓库路径加载待测脚本，避免要求 tools 成为 Python 包。"""
-
-    spec = importlib.util.spec_from_file_location("validate_all_skills_under_test", VALIDATOR_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("无法加载 tools/validate_all_skills.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-validator = load_validator_module()
 
 VALID_SKILL = """---
 name: sample-skill
@@ -116,7 +100,7 @@ class TemporarySkillRepository:
         path = assets / "watchlist.csv"
         buffer = io.StringIO(newline="")
         writer = csv.writer(buffer, lineterminator="\n")
-        writer.writerow(header or validator.WATCHLIST_HEADER)
+        writer.writerow(header or radar_plugin.WATCHLIST_HEADER)
         writer.writerows(rows)
         path.write_text(buffer.getvalue(), encoding="utf-8")
         return path
@@ -134,7 +118,7 @@ class RepositoryTestCase(unittest.TestCase):
         self.repository.close()
 
     def validate(self):
-        return validator.validate_repository(self.repository.root)
+        return validate_repository(self.repository.root)
 
     def assert_has_error(self, report, fragment: str) -> None:
         messages = "\n".join(issue.render() for issue in report.errors)
@@ -143,14 +127,7 @@ class RepositoryTestCase(unittest.TestCase):
 
 class SkillStructureTests(RepositoryTestCase):
     def test_current_repository_skills_pass(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            copied_root = Path(temporary_directory)
-            shutil.copytree(
-                ROOT / ".agents",
-                copied_root / ".agents",
-                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
-            )
-            report = validator.validate_repository(copied_root)
+        report = validate_repository(ROOT)
         self.assertTrue(
             report.is_valid,
             "\n".join(issue.render() for issue in report.errors),
@@ -187,7 +164,9 @@ class SkillStructureTests(RepositoryTestCase):
     def test_missing_required_section_fails(self) -> None:
         content = VALID_SKILL.replace("## 目标", "## 概览")
         self.repository.skill_file.write_text(content, encoding="utf-8")
-        report = self.validate()
+        report = radar_plugin.validate_skill_semantics(
+            SkillContext(self.repository.root, self.repository.skill_dir, "sample-skill")
+        )
         self.assert_has_error(report, "缺少必需语义章节：目标")
 
     def test_missing_local_reference_fails(self) -> None:
@@ -235,13 +214,17 @@ class SkillStructureTests(RepositoryTestCase):
 
 
 class WatchlistTests(RepositoryTestCase):
+    def validate(self):
+        path = self.repository.skill_dir / "assets" / "watchlist.csv"
+        return radar_plugin.validate_watchlist(path, self.repository.root)
+
     def test_valid_watchlist_passes(self) -> None:
         self.repository.write_watchlist([WATCHLIST_ROW])
         report = self.validate()
         self.assertTrue(report.is_valid, "\n".join(issue.render() for issue in report.errors))
 
     def test_wrong_header_fails(self) -> None:
-        wrong_header = validator.WATCHLIST_HEADER[:-1]
+        wrong_header = radar_plugin.WATCHLIST_HEADER[:-1]
         self.repository.write_watchlist([WATCHLIST_ROW[:-1]], header=wrong_header)
         report = self.validate()
         self.assert_has_error(report, "CSV 表头")
@@ -305,8 +288,7 @@ class SensitiveInformationTests(RepositoryTestCase):
             "文档可以讨论 API Key，但这里没有任何凭据值。",
             encoding="utf-8",
         )
-        report = validator.ValidationReport()
-        validator.scan_sensitive_information(self.repository.root, report)
+        report = scan_sensitive_information(self.repository.root)
         self.assertFalse(report.errors)
 
     def test_high_confidence_credential_pattern_is_detected(self) -> None:
@@ -315,8 +297,7 @@ class SensitiveInformationTests(RepositoryTestCase):
             f"仅用于自动化测试，不是真实凭据：{fake_test_key}\n",
             encoding="utf-8",
         )
-        report = validator.ValidationReport()
-        validator.scan_sensitive_information(self.repository.root, report)
+        report = scan_sensitive_information(self.repository.root)
         self.assertTrue(report.errors)
         self.assertIn("AWS access key", report.errors[0].message)
 
@@ -326,13 +307,8 @@ class SensitiveInformationTests(RepositoryTestCase):
             f"TEST DATA ONLY: {fake_test_key}\n",
             encoding="utf-8",
         )
-        report = validator.ValidationReport()
-        validator.scan_sensitive_information(self.repository.root, report)
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-        with redirect_stdout(stdout), redirect_stderr(stderr):
-            validator.print_report(report)
-        output = stdout.getvalue() + stderr.getvalue()
+        report = scan_sensitive_information(self.repository.root)
+        output = "\n".join(issue.render() for issue in report.errors)
         self.assertNotIn(fake_test_key, output)
         self.assertIn("…", output)
 
@@ -344,8 +320,7 @@ class SensitiveInformationTests(RepositoryTestCase):
         cache_dir.mkdir()
         (git_dir / "secret.txt").write_text(fake_test_key, encoding="utf-8")
         (cache_dir / "secret.txt").write_text(fake_test_key, encoding="utf-8")
-        report = validator.ValidationReport()
-        validator.scan_sensitive_information(self.repository.root, report)
+        report = scan_sensitive_information(self.repository.root)
         self.assertFalse(report.errors)
 
 

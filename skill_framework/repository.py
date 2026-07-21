@@ -12,6 +12,7 @@ from . import codes
 from .discovery import discover_skill_directories
 from .markdown import relative_path
 from .models import Issue, RepositoryValidation, SkillContext, ValidationResult
+from .registry import discover_plugins, run_plugin
 from .security import scan_sensitive_information
 from .validator import validate_skill
 
@@ -123,3 +124,45 @@ def validate_repository_common(root: Path) -> RepositoryValidation:
     if root.is_dir():
         results.extend((validate_forbidden_paths(root), scan_sensitive_information(root)))
     return RepositoryValidation(len(discovery.skill_dirs), 0, ValidationResult.merge(*results))
+
+
+def validate_repository(root: Path) -> RepositoryValidation:
+    """执行通用校验、全量插件校验和仓库级安全检查。"""
+
+    root = root.expanduser().resolve()
+    discovery = discover_skill_directories(root)
+    plugin_discovery = discover_plugins(root / "plugins") if root.is_dir() else None
+    results: list[ValidationResult] = [discovery.result]
+    plugins = plugin_discovery.plugins if plugin_discovery is not None else ()
+    if plugin_discovery is not None:
+        results.append(plugin_discovery.result)
+    plugins_by_skill = {plugin.skill_name: plugin for plugin in plugins}
+    skill_names = {skill_dir.name for skill_dir in discovery.skill_dirs}
+
+    for plugin in plugins:
+        if plugin.skill_name not in skill_names:
+            results.append(
+                ValidationResult(
+                    errors=(
+                        Issue(
+                            codes.PLUGIN_ORPHANED,
+                            relative_path(plugin.path, root),
+                            f"插件对应的 Skill 不存在：{plugin.skill_name}",
+                        ),
+                    )
+                )
+            )
+
+    for skill_dir in discovery.skill_dirs:
+        context = SkillContext(root, skill_dir, skill_dir.name)
+        results.append(validate_skill(context))
+        plugin = plugins_by_skill.get(skill_dir.name)
+        if plugin is not None:
+            results.append(run_plugin(plugin, context))
+    if root.is_dir():
+        results.extend((validate_forbidden_paths(root), scan_sensitive_information(root)))
+    return RepositoryValidation(
+        len(discovery.skill_dirs),
+        len(plugins),
+        ValidationResult.merge(*results),
+    )

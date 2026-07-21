@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import os
 import re
 import sys
@@ -12,9 +11,18 @@ import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from types import ModuleType
 from typing import Sequence
 
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+root_text = str(REPOSITORY_ROOT)
+if root_text not in sys.path:
+    sys.path.insert(0, root_text)
+
+from skill_framework.models import SkillContext, ValidationResult  # noqa: E402
+from skill_framework.registry import load_plugin_for_skill, run_plugin  # noqa: E402
+from skill_framework.security import scan_sensitive_information  # noqa: E402
+from skill_framework.validator import validate_skill  # noqa: E402
 
 SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 IGNORED_DIRECTORY_NAMES = frozenset(
@@ -55,28 +63,6 @@ class PackageResult:
     warnings: tuple[str, ...] = ()
 
 
-def load_skill_validator() -> ModuleType:
-    """从同一 tools 目录加载仓库级校验器，避免复制校验规则。"""
-
-    module_name = "_research_skills_validate_all_skills"
-    existing = sys.modules.get(module_name)
-    if existing is not None:
-        return existing
-
-    validator_path = Path(__file__).resolve().with_name("validate_all_skills.py")
-    spec = importlib.util.spec_from_file_location(module_name, validator_path)
-    if spec is None or spec.loader is None:
-        raise PackageError(f"无法加载 Skill 校验器：{validator_path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    try:
-        spec.loader.exec_module(module)
-    except (OSError, ImportError, SyntaxError) as exc:
-        sys.modules.pop(module_name, None)
-        raise PackageError(f"加载 Skill 校验器失败：{exc}") from exc
-    return module
-
-
 def validate_skill_name(skill_name: str) -> None:
     """限制 Skill 名称，防止路径穿越和不可移植目录名。"""
 
@@ -96,16 +82,18 @@ def is_ignored_file(path: Path) -> bool:
 
 
 def validate_source_skill(skill_dir: Path, repository_root: Path) -> tuple[str, ...]:
-    """复用仓库校验器检查目标 Skill，并返回非致命警告。"""
+    """执行通用检查并只加载目标 Skill 插件。"""
 
-    validator = load_skill_validator()
-    report = validator.ValidationReport(skill_count=1)
-    validator.validate_skill(skill_dir, repository_root, report)
-    validator.scan_sensitive_information(skill_dir, report)
-    if report.errors:
-        details = "\n".join(f"- {issue.render()}" for issue in report.errors)
+    context = SkillContext(repository_root, skill_dir, skill_dir.name)
+    plugin_load = load_plugin_for_skill(repository_root / "plugins", skill_dir.name)
+    results = [validate_skill(context), plugin_load.result, scan_sensitive_information(skill_dir)]
+    if plugin_load.plugin is not None:
+        results.append(run_plugin(plugin_load.plugin, context))
+    result = ValidationResult.merge(*results)
+    if result.errors:
+        details = "\n".join(f"- {issue.render()}" for issue in result.errors)
         raise PackageError(f"Skill 校验失败，已停止打包：\n{details}")
-    return tuple(issue.render() for issue in report.warnings)
+    return tuple(issue.render() for issue in result.warnings)
 
 
 def collect_skill_files(skill_dir: Path) -> list[Path]:
@@ -226,7 +214,7 @@ def create_skill_archive(
 def build_parser() -> argparse.ArgumentParser:
     """创建命令行参数解析器。"""
 
-    default_root = Path(__file__).resolve().parents[1]
+    default_root = REPOSITORY_ROOT
     parser = argparse.ArgumentParser(
         description="校验并打包一个自包含 Agent Skill，安全覆盖已有同名 ZIP。",
         add_help=False,
