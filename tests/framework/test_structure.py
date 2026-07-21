@@ -8,6 +8,7 @@ from pathlib import Path
 
 from skill_framework.repository import validate_repository
 from skill_framework.security import scan_sensitive_information
+from tests.repository_fixture import copy_repository_fixture
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -89,12 +90,20 @@ class RepositoryTestCase(unittest.TestCase):
 
 
 class SkillStructureTests(RepositoryTestCase):
-    def test_current_repository_skills_pass(self) -> None:
-        report = validate_repository(ROOT)
+    def test_current_repository_sources_pass_in_isolation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            copied_root = Path(temporary_directory)
+            copy_repository_fixture(ROOT, copied_root)
+            report = validate_repository(copied_root)
         self.assertTrue(
             report.is_valid,
             "\n".join(issue.render() for issue in report.errors),
         )
+
+    def test_ds_store_fails_validation(self) -> None:
+        (self.repository.root / ".DS_Store").write_bytes(b"test macOS metadata placeholder")
+        report = self.validate()
+        self.assertIn("path.ds_store", {issue.code for issue in report.errors})
 
     def test_missing_skill_file_fails(self) -> None:
         self.repository.skill_file.unlink()

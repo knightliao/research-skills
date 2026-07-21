@@ -13,6 +13,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from skill_framework import packaging as package_tool
+from tests.repository_fixture import copy_repository_fixture
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_TOOL_PATH = ROOT / "tools" / "package_skill.py"
@@ -303,14 +304,18 @@ def validate(context):
 
 class EndToEndSmokeTests(unittest.TestCase):
     def test_all_repository_skills_can_be_discovered_and_packaged(self) -> None:
-        skill_dirs = sorted(path for path in (ROOT / ".agents" / "skills").iterdir() if path.is_dir())
-        self.assertTrue(skill_dirs)
         with tempfile.TemporaryDirectory() as temporary_directory:
+            repository_root = Path(temporary_directory) / "repository"
+            copy_repository_fixture(ROOT, repository_root)
+            skill_dirs = sorted(
+                path for path in (repository_root / ".agents" / "skills").iterdir() if path.is_dir()
+            )
+            self.assertTrue(skill_dirs)
             output_dir = Path(temporary_directory) / "dist"
             for skill_dir in skill_dirs:
                 result = package_tool.package_skill(
                     skill_dir.name,
-                    repository_root=ROOT,
+                    repository_root=repository_root,
                     output_dir=output_dir,
                 )
                 with zipfile.ZipFile(result.output_path) as archive:
@@ -318,9 +323,18 @@ class EndToEndSmokeTests(unittest.TestCase):
                     self.assertIn(f"{skill_dir.name}/SKILL.md", archive.namelist())
 
     def test_validate_cli_runs_from_outside_repository(self) -> None:
-        with tempfile.TemporaryDirectory() as other_directory:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_path = Path(temporary_directory)
+            repository_root = temporary_path / "repository"
+            other_directory = temporary_path / "outside"
+            other_directory.mkdir()
+            copy_repository_fixture(ROOT, repository_root)
             process = subprocess.run(
-                [sys.executable, str(ROOT / "tools" / "validate_all_skills.py"), str(ROOT)],
+                [
+                    sys.executable,
+                    str(ROOT / "tools" / "validate_all_skills.py"),
+                    str(repository_root),
+                ],
                 cwd=other_directory,
                 capture_output=True,
                 text=True,
@@ -356,6 +370,8 @@ class EndToEndSmokeTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             temporary_path = Path(temporary_directory)
+            repository_root = temporary_path / "repository"
+            copy_repository_fixture(ROOT, repository_root)
             valid_path = temporary_path / "valid-events.json"
             invalid_path = temporary_path / "invalid-events.json"
             valid_path.write_text(json.dumps(valid_event, ensure_ascii=False), encoding="utf-8")
@@ -376,7 +392,11 @@ class EndToEndSmokeTests(unittest.TestCase):
                 check=False,
             )
             repository_process = subprocess.run(
-                [sys.executable, str(ROOT / "tools" / "validate_all_skills.py"), str(ROOT)],
+                [
+                    sys.executable,
+                    str(ROOT / "tools" / "validate_all_skills.py"),
+                    str(repository_root),
+                ],
                 cwd=ROOT,
                 capture_output=True,
                 text=True,
@@ -384,7 +404,7 @@ class EndToEndSmokeTests(unittest.TestCase):
             )
             package_result = package_tool.create_skill_archive(
                 "global-ai-agent-radar",
-                repository_root=ROOT,
+                repository_root=repository_root,
                 output_dir=temporary_path / "dist",
             )
 
