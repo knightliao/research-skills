@@ -24,6 +24,9 @@ IGNORED_DIRECTORY_NAMES = frozenset(
 IGNORED_FILE_NAMES = frozenset({".DS_Store"})
 IGNORED_FILE_SUFFIXES = frozenset({".pyc", ".pyo"})
 TEMPORARY_FILE_SUFFIXES = ("~", ".swp", ".swo", ".tmp")
+FORBIDDEN_ARCHIVE_TOP_LEVEL_NAMES = frozenset(
+    {"skill_framework", "plugins", "tools", "tests", ".github"}
+)
 
 
 class PackageError(Exception):
@@ -96,6 +99,46 @@ def archive_name(skill_name: str, source_file: Path, skill_dir: Path) -> str:
     return PurePosixPath(skill_name, *relative.parts).as_posix()
 
 
+def validate_skill_archive(archive_path: Path, skill_name: str) -> tuple[str, ...]:
+    """验证 ZIP 的完整性、单一 Skill 边界和仓库设施隔离。"""
+
+    validate_skill_name(skill_name)
+    try:
+        with zipfile.ZipFile(archive_path) as archive:
+            corrupt_member = archive.testzip()
+            if corrupt_member is not None:
+                raise PackageError(f"ZIP 成员损坏：{corrupt_member}")
+            names = tuple(archive.namelist())
+    except PackageError:
+        raise
+    except (OSError, RuntimeError, ValueError, zipfile.BadZipFile, zipfile.LargeZipFile) as exc:
+        raise PackageError(f"ZIP 无法读取：{exc}") from exc
+
+    if not names:
+        raise PackageError("ZIP 不得为空")
+
+    member_paths = tuple(PurePosixPath(name) for name in names)
+    for name, member_path in zip(names, member_paths, strict=True):
+        if member_path.is_absolute() or ".." in member_path.parts:
+            raise PackageError(f"ZIP 成员路径不安全：{name}")
+        if not member_path.parts or member_path.parts[0] != skill_name:
+            raise PackageError(f"ZIP 成员不在目标 Skill 顶层目录内：{name}")
+        if (
+            len(member_path.parts) >= 2
+            and member_path.parts[1] in FORBIDDEN_ARCHIVE_TOP_LEVEL_NAMES
+        ):
+            raise PackageError(
+                f"ZIP 不得包含仓库设施目录：{member_path.parts[1]}"
+            )
+
+    top_levels = {member_path.parts[0] for member_path in member_paths}
+    if top_levels != {skill_name}:
+        raise PackageError(f"ZIP 必须只有一个名为 {skill_name} 的顶层目录")
+    if f"{skill_name}/SKILL.md" not in names:
+        raise PackageError("ZIP 缺少 Skill 入口文件 SKILL.md")
+    return names
+
+
 def package_skill(
     skill_name: str,
     *,
@@ -151,6 +194,7 @@ def package_skill(
         ) as archive:
             for source_file in source_files:
                 archive.write(source_file, arcname=archive_name(skill_name, source_file, skill_dir))
+        validate_skill_archive(temporary_path, skill_name)
         os.replace(temporary_path, output_path)
         temporary_path = None
         size_bytes = output_path.stat().st_size

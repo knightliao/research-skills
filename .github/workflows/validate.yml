@@ -71,7 +71,8 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          from zipfile import ZipFile
+
+          from skill_framework.packaging import validate_skill_archive
 
           skill_names = sorted(
               path.name for path in Path(".agents/skills").iterdir() if path.is_dir()
@@ -80,16 +81,16 @@ jobs:
           for skill_name in skill_names:
               archive_path = Path("dist") / f"{skill_name}.zip"
               assert archive_path.is_file(), f"缺少 ZIP：{archive_path}"
-              with ZipFile(archive_path) as archive:
-                  assert archive.testzip() is None, f"ZIP 中存在损坏文件：{archive_path}"
-                  names = archive.namelist()
-                  assert names, f"ZIP 不得为空：{archive_path}"
-                  assert {name.split("/", 1)[0] for name in names} == {
-                      skill_name
-                  }, f"ZIP 顶层目录错误：{archive_path}"
-                  assert f"{skill_name}/SKILL.md" in names, f"ZIP 缺少 SKILL.md：{archive_path}"
+              validate_skill_archive(archive_path, skill_name)
               print(f"ZIP 校验通过：{archive_path}")
           PY
 
-      - name: Check working tree whitespace
-        run: git diff --check
+      - name: Verify build leaves clean working tree
+        run: |
+          git diff --check
+          status="$(git status --porcelain --untracked-files=all)"
+          if [ -n "$status" ]; then
+            echo "构建后工作区存在意外修改："
+            git status --short
+            exit 1
+          fi
