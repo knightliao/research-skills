@@ -26,3 +26,4 @@ venv/
 dist/
 reports/
 runs/
+.idea/
