@@ -14,12 +14,24 @@
 
 具体工作流、运行时数据契约和专属工具见该 Skill 的 [SKILL.md](.agents/skills/global-ai-agent-radar/SKILL.md)。根 README 不重复维护 Skill 内部规则。
 
+### subtitle-to-wechat-article
+
+`subtitle-to-wechat-article` 读取 SRT、WebVTT、ASS/SSA、LRC、TXT 或 Markdown 字幕，将中文字幕直接文章化，并把英文或其他外语字幕先准确翻译为中文语义底稿，再重组为易于理解和阅读的中文公众号文章。它强调全局组织、翻译忠实度、讲者归因、数字与限定条件，不是逐句翻译器或字幕摘要器。
+
+具体工作流、翻译规则、文章模板和字幕规范化工具见该 Skill 的 [SKILL.md](.agents/skills/subtitle-to-wechat-article/SKILL.md)。根 README 不重复维护 Skill 内部规则。
+
 ## 目录结构
 
 ```text
 .
 ├── .agents/skills/
-│   └── global-ai-agent-radar/
+│   ├── global-ai-agent-radar/
+│   │   ├── SKILL.md
+│   │   ├── references/
+│   │   ├── examples/
+│   │   ├── assets/
+│   │   └── scripts/
+│   └── subtitle-to-wechat-article/
 │       ├── SKILL.md
 │       ├── references/
 │       ├── examples/
