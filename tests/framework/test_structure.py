@@ -100,10 +100,16 @@ class SkillStructureTests(RepositoryTestCase):
             "\n".join(issue.render() for issue in report.errors),
         )
 
-    def test_ds_store_fails_validation(self) -> None:
+    def test_unignored_ds_store_fails_validation(self) -> None:
         (self.repository.root / ".DS_Store").write_bytes(b"test macOS metadata placeholder")
         report = self.validate()
         self.assertIn("path.ds_store", {issue.code for issue in report.errors})
+
+    def test_gitignored_ds_store_does_not_fail_validation(self) -> None:
+        (self.repository.root / ".gitignore").write_text(".DS_Store\n", encoding="utf-8")
+        (self.repository.root / ".DS_Store").write_bytes(b"test macOS metadata placeholder")
+        report = self.validate()
+        self.assertTrue(report.is_valid, "\n".join(issue.render() for issue in report.errors))
 
     def test_missing_skill_file_fails(self) -> None:
         self.repository.skill_file.unlink()
