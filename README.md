@@ -59,15 +59,18 @@ python3 -m compileall \
 
 ## 校验研究事件 JSON
 
-`validate_events.py` 接受单个事件对象或事件对象数组：
+`validate_events.py` 接受单个事件对象或事件对象数组。建议使用仓库外临时路径：
 
 ```bash
-python3 .agents/skills/global-ai-agent-radar/scripts/validate_events.py events.json
+python3 .agents/skills/global-ai-agent-radar/scripts/validate_events.py \
+  <临时目录>/events.json
 ```
 
-事件必须包含标题、事件日期、信息发布日期、来源、事实、推断、六维评分、可信度和后续验证指标。具体字段约束以脚本的 `--help` 和测试为准。
+`events.json` 只是约定名称，可以替换为任意 JSON 文件路径。它由执行 Agent 在完成时间核验、去重、评分和过滤后临时生成，只包含最终准备写入报告的重点事件、一般重要事件和待验证信号，不包含全部搜索候选。
 
-`events.json` 是一次研究过程中的运行时中间数据，不应提交到当前仓库。需要保留研究结果时，应先确认内容已经脱敏，并按照仓库的数据处理规则选择外部保存位置。
+空数组 `[]` 表示没有任何最终条目的空结果状态；非空数组但没有重点事件时，仍属于普通“无重点事件模式”，可以包含一般重要事件和待验证信号。完整字段、来源角色、分类顺序和 URL 去重规则见 Skill 内的 `references/event-schema.md`。
+
+该文件不是事实来源或长期数据资产，默认在报告生成后删除，不应提交到当前仓库。需要留存时，应先脱敏并选择仓库外的受控位置。校验器只检查结构和确定性规则，不验证事实真假、来源独立性或证据支持关系。
 
 ## 打包单个 Skill
 
@@ -139,7 +142,7 @@ global-ai-agent-radar.zip
 ## 第一版已知限制
 
 - 当前只有 `global-ai-agent-radar` 一个 Skill，新增 Skill 后需要同步扩展相应测试和 CI 冒烟范围。
-- 事件校验支持单个 JSON 对象或 JSON 数组，暂不支持 JSON Lines。
+- 事件校验支持单个 JSON 对象或 JSON 数组（包括表示空结果的 `[]`），暂不支持 JSON Lines。
 - frontmatter 校验只支持当前仓库使用的扁平 `key: value` 子集，不是完整 YAML 解析器。
 - 本地工具只做确定性校验和打包，不负责联网检索、新闻抓取或研究判断。
 - 观察池调整依赖人工确认，不会由日报或脚本自动写入。

@@ -1,6 +1,6 @@
 # 全球 AI Agent 增量雷达
 
-> 使用说明：存在总分 24–30 分且信息可信度至少 3 分的事件时选择模式 A，否则选择“无重点事件模式”。删除未使用的模式和无内容章节。不要为了保持形式完整而填充低价值事件。事实、证据、推断和建议必须分别书写。
+> 使用说明：分类必须使用六项评分重算总分。存在重算总分 24–30 分、`credibility` 至少 3 分且 `confidence` 为 `high` 或 `medium` 的事件时选择模式 A；非空事件清单没有重点事件时选择模式 B；空数组 `[]` 使用空结果状态。删除未使用的模式和无内容章节，不要为了保持形式完整而填充低价值事件。事实、证据、推断和建议必须分别书写。
 
 ## 模式 A：有重点事件
 
@@ -31,7 +31,8 @@
 - **能力可用时间与范围**：{{availability_time_and_scope}}
 - **重要性等级**：重点事件
 - **总评分**：{{total_score}} / 30
-- **分项评分**：新颖性 {{novelty_score}}；产品影响 {{product_score}}；工程与技术影响 {{engineering_score}}；企业应用与商业化影响 {{commercial_score}}；行业竞争与生态影响 {{ecosystem_score}}；信息可信度 {{confidence_score}}
+- **分项评分**：新颖性 {{novelty_score}}；产品影响 {{product_score}}；工程与技术影响 {{engineering_score}}；企业应用与商业化影响 {{commercial_score}}；行业竞争与生态影响 {{ecosystem_score}}；信息可信度 {{credibility_score}}
+- **判断置信度**：{{confidence_level}}
 
 **已确认事实**
 
@@ -76,7 +77,8 @@
 - **事件发生时间**：{{event_time}}
 - **信息发布时间**：{{publication_time}}
 - **总评分**：{{total_score}} / 30
-- **信息可信度**：{{confidence_score}} / 5
+- **信息可信度**：{{credibility_score}} / 5
+- **判断置信度**：{{confidence_level}}
 
 **已确认事实**
 
@@ -157,7 +159,8 @@
 - **事件发生时间**：{{event_time}}
 - **信息发布时间**：{{publication_time}}
 - **总评分**：{{total_score}} / 30
-- **信息可信度**：{{confidence_score}} / 5
+- **信息可信度**：{{credibility_score}} / 5
+- **判断置信度**：{{confidence_level}}
 
 **已确认事实**
 
@@ -187,15 +190,16 @@
 
 - {{verifiable_metric_with_source_and_timeframe}}
 
-<!-- 仅列入总分 18–23 分且信息可信度至少 3 分的事件；没有时删除本节。 -->
+<!-- 仅列入重算总分 18–23 分、credibility 至少 3 分且 confidence 为 high 或 medium 的事件；没有时删除本节。 -->
 
 ### 未达到收录阈值的观察信号
 
 #### {{signal_name}}
 
 - **已确认事实**：{{confirmed_fact}}
-- **证据与可信度**：{{evidence_and_confidence}}
+- **证据与信息可信度**：{{evidence_and_credibility}}
 - **评分**：{{score}} / 30
+- **判断置信度**：{{confidence_level}}
 - **未收录原因**：{{threshold_or_confidence_reason}}
 - **待验证条件**：{{specific_verification_conditions}}
 
@@ -218,3 +222,38 @@
 ### 信息限制
 
 {{说明本期未覆盖范围、来源缺口和其他限制。}}
+
+---
+
+## 空结果状态
+
+<!-- 仅当临时事件 JSON 为 [] 时使用。本状态不同于非空的“无重点事件模式”，不得生成空事件或空信号章节。 -->
+
+### 报告信息
+
+- **报告日期**：{{report_date}}
+- **研究截止时间**：{{cutoff_time}}（{{timezone}}）
+- **研究范围**：{{research_window}}
+- **覆盖地区与方向**：{{regions_and_focus_areas}}
+
+### 今日结论
+
+**今天没有重大突破。**
+
+{{简要说明筛选后没有任何值得写入报告的事件或观察信号，不用低价值新闻填充。}}
+
+### 研究覆盖
+
+{{说明已检查的主要方向、观察池范围和开放发现范围。}}
+
+### 观察池状态
+
+{{简要说明观察池是否存在调整建议；没有时明确写“无升级、降级、暂停或剔除建议”。}}
+
+### 后续验证事项
+
+- {{verification_item_with_timeframe_or_none}}
+
+### 信息限制
+
+{{说明来源缺口、未覆盖范围和其他可能影响空结果判断的限制。}}
