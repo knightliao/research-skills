@@ -56,12 +56,54 @@ class SubtitleSkillContractTests(unittest.TestCase):
             "references/quality-checklist.md",
             "references/subtitle-processing.md",
             "references/translation-policy.md",
+            "references/wechat-package.md",
+            "scripts/build_wechat_package.py",
             "scripts/normalize_subtitle.py",
+            "scripts/render_wechat_html.py",
+            "scripts/wechat_illustrations.py",
+            "scripts/wechat_markdown.py",
+            "scripts/wechat_resources.py",
         )
         skill_text = SKILL_PATH.read_text(encoding="utf-8")
         for relative_path in expected_paths:
             self.assertTrue((SKILL_DIR / relative_path).is_file(), relative_path)
             self.assertIn(f"]({relative_path})", skill_text)
+
+    def test_natural_language_intent_routing_is_explicit(self) -> None:
+        skill_text = SKILL_PATH.read_text(encoding="utf-8")
+        routing = skill_text.split("## 自然语言意图路由", 1)[1].split("## 主工作流", 1)[0]
+        expected_rows = {
+            "把开头压缩一下": ("只定位并修改包外的可编辑源稿", "不得运行 `init`、`rebuild`、图片生成或 `finalize`"),
+            "用修改后的文章重新生成": ("创建新的、不可覆盖的 `-vN` 发布包",),
+            "改成只要封面": ("创建新的 `cover-only` 或 `body-images` 版本", "不修改任何旧包"),
+            "继续上次失败的包": ("incomplete 包", "保留全部 ready 资产", "只补缺失项"),
+            "从 v2 恢复成草稿": ("复制为包外的新可编辑源稿", "不修改历史包", "不自动打包"),
+        }
+        for phrase, required in expected_rows.items():
+            with self.subTest(phrase=phrase):
+                row = next((line for line in routing.splitlines() if phrase in line), "")
+                self.assertTrue(row, phrase)
+                for fragment in required:
+                    self.assertIn(fragment, row)
+
+    def test_candidate_resolution_requires_disambiguation(self) -> None:
+        skill_text = SKILL_PATH.read_text(encoding="utf-8")
+        routing = skill_text.split("## 自然语言意图路由", 1)[1].split("## 主工作流", 1)[0]
+        for field in ("article_source_file", "source_file", "package_version", "mode", "status"):
+            self.assertIn(f"`{field}`", routing)
+        self.assertIn("显式路径或版本、当前对话上下文、schema v2 manifest 关联、唯一候选", routing)
+        self.assertIn("必须展示每个候选的源稿路径、包版本、模式和状态", routing)
+        self.assertIn("再询问用户选择", routing)
+        self.assertIn("禁止仅按修改时间", routing)
+
+    def test_source_edit_contract_does_not_require_complete_package(self) -> None:
+        skill_text = SKILL_PATH.read_text(encoding="utf-8")
+        source_contract = skill_text.split("### 只修改源稿", 1)[1].split("### 创建发布包", 1)[0]
+        self.assertIn("不运行打包、图片或 finalize 流程", source_contract)
+        self.assertIn("不要求交付 complete 包", source_contract)
+        self.assertIn("未创建发布包", source_contract)
+        publish_contract = skill_text.split("### 创建发布包", 1)[1].split("### 继续 incomplete 包", 1)[0]
+        self.assertIn("只有此类任务要求最终状态为 complete", publish_contract)
 
 
 class NormalizeSubtitleFormatTests(unittest.TestCase):
