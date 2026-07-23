@@ -16,7 +16,7 @@
 
 ### subtitle-to-wechat-article
 
-`subtitle-to-wechat-article` 读取 SRT、WebVTT、ASS/SSA、LRC、TXT 或 Markdown 字幕，将中文字幕直接文章化，并把英文或其他外语字幕先准确翻译为中文语义底稿，再重组为易于理解和阅读的中文公众号文章。它强调全局组织、翻译忠实度、讲者归因、数字与限定条件，不是逐句翻译器或字幕摘要器。
+`subtitle-to-wechat-article` 读取 SRT、WebVTT、ASS/SSA、LRC、TXT 或 Markdown 字幕，将中文字幕直接文章化，并把英文或其他外语字幕先准确翻译为中文语义底稿，再重组为中文公众号文章。它采用“包外可编辑源稿 + 包内不可变发布快照”模型，支持默认封面模式和显式正文配图模式；发布包包含独立标题、Markdown 快照、稳定样式 HTML、真实无字封面、可选正文图、发布指南与 manifest。
 
 具体工作流、翻译规则、文章模板和字幕规范化工具见该 Skill 的 [SKILL.md](.agents/skills/subtitle-to-wechat-article/SKILL.md)。根 README 不重复维护 Skill 内部规则。
 
@@ -144,7 +144,7 @@ ZIP 只有一个顶层目录：
 
 ## 第一版已知限制
 
-- 当前只有 `global-ai-agent-radar` 一个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
+- 当前仓库包含 `global-ai-agent-radar` 和 `subtitle-to-wechat-article` 两个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
 - 插件 API 当前版本为 `1`，第一版只提供 `validate` 钩子，不提供自定义打包、发布或 benchmark 生命周期。
 - 插件作为受信任的本地 Python 代码运行，没有进程级沙箱；代码审查必须保证其确定性、无网络且不修改文件。
 - frontmatter 校验只支持当前仓库使用的扁平 `key: value` 子集，不是完整 YAML 解析器。
