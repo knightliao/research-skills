@@ -1,0 +1,7 @@
+interface:
+  display_name: "Leader"
+  short_description: "将复杂需求整理成可执行、可验收的 Agent 任务指导"
+  default_prompt: "使用 $leader 将这个需求整理成可执行、可验收的 Agent 任务指导。"
+
+policy:
+  allow_implicit_invocation: false

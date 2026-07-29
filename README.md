@@ -8,6 +8,24 @@
 
 ## 当前 Skill
 
+### leader
+
+`leader` 是一个显式调用的任务设计与验收 Skill，用于把复杂或模糊需求整理为可执行、可验收的 Agent 任务指导，复核已有任务书，或依据原任务书验收执行结果。它保留 Goal（要达到的真实变化）与 Harness（范围、约束、证据和止损机制）的核心：目标告诉 Agent 往哪里走，执行边界和验收机制防止它用错误捷径达标。
+
+`leader` 默认禁止隐式触发。Codex CLI 或 IDE 中使用 `$leader` 或从 `/skills` 选择；ChatGPT 中通过 `@` 显式选择；其他 Agent 使用宿主提供的显式 Skill 调用机制。普通“帮我修复”“直接修改代码”等请求不应触发它。
+
+三种使用方式：
+
+```text
+$leader CREATE：先分析仓库，再把这个模糊需求整理成给 Codex 的实施指导
+$leader REVIEW-SPEC：复核下面这份任务书，指出阻塞问题并给出具体修改段落
+$leader AUDIT-RESULT：依据原任务书、代码差异和验证证据验收这次执行结果
+```
+
+在 ChatGPT 或其他宿主中，先显式选择 `leader`，再发送同样的模式和需求。CREATE 生成任务指导后应结束 leader 阶段，再将普通 Markdown 任务书交给 Codex、Claude Code 或其他执行 Agent。复杂任务可以在宿主支持时先使用规划模式审阅方案，但任务书本身不依赖特定命令。
+
+具体模式、任务模板和验收规则见该 Skill 的 [SKILL.md](.agents/skills/leader/SKILL.md)。
+
 ### global-ai-agent-radar
 
 `global-ai-agent-radar` 研究最近 24–72 小时全球 AI Agent 在产品、技术、开源生态、企业应用、商业化、融资和竞争方面的真正增量，为技术负责人、产品负责人、业务负责人和创业者生成增量雷达。它强调原始来源、时间核验、去重、评分、影响判断和后续可验证指标，不是普通 AI 新闻摘要。
@@ -25,6 +43,11 @@
 ```text
 .
 ├── .agents/skills/
+│   ├── leader/
+│   │   ├── SKILL.md
+│   │   ├── agents/
+│   │   │   └── openai.yaml
+│   │   └── references/
 │   ├── global-ai-agent-radar/
 │   │   ├── SKILL.md
 │   │   ├── references/
@@ -105,6 +128,7 @@ ZIP 只有一个顶层目录：
 <skill-name>.zip
 └── <skill-name>/
     ├── SKILL.md
+    ├── agents/
     ├── references/
     ├── examples/
     ├── assets/
@@ -119,7 +143,7 @@ ZIP 只有一个顶层目录：
 
 1. 在 `.agents/skills/<skill-name>/` 创建独立目录；名称只使用小写字母、数字和连字符。
 2. 创建带有 `name` 和 `description` frontmatter 的 `SKILL.md`，并确保 `name` 与目录名一致。
-3. 按需增加 `references/`、`examples/`、`assets/` 和 `scripts/`；不要在 Skill 内新增 README。
+3. 按需增加 `agents/`、`references/`、`examples/`、`assets/` 和 `scripts/`；不要在 Skill 内新增 README。
 4. 保证所有运行时文件和本地引用都位于该 Skill 目录内，脚本只处理确定性任务。
 5. 如果只有通用约束，不需要新增插件；仓库校验和 CI 会自动发现并打包该 Skill。
 6. 如果有专属数据契约，在 `plugins/<skill_name>.py` 实现 `PLUGIN_API_VERSION = 1`、`SKILL_NAME` 和返回独立 `ValidationResult` 的 `validate(context)`；插件不得修改文件或访问网络。
@@ -144,7 +168,7 @@ ZIP 只有一个顶层目录：
 
 ## 第一版已知限制
 
-- 当前仓库包含 `global-ai-agent-radar` 和 `subtitle-to-wechat-article` 两个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
+- 当前仓库包含 `leader`、`global-ai-agent-radar` 和 `subtitle-to-wechat-article` 三个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
 - 插件 API 当前版本为 `1`，第一版只提供 `validate` 钩子，不提供自定义打包、发布或 benchmark 生命周期。
 - 插件作为受信任的本地 Python 代码运行，没有进程级沙箱；代码审查必须保证其确定性、无网络且不修改文件。
 - frontmatter 校验只支持当前仓库使用的扁平 `key: value` 子集，不是完整 YAML 解析器。
