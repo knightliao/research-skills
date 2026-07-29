@@ -6,37 +6,45 @@
 
 仓库采用四层架构：`skill_framework/` 提供完全通用的内核，`plugins/` 承载 Skill 专属校验，`tools/` 只保留 CLI，`tests/` 按框架、插件、Skill 和集成场景分层。插件是仓库开发期扩展，不进入 Skill ZIP，也不是 Skill 运行时依赖。
 
+## 快速使用
+
+| Skill | 一句话用途 | 最短输入 | 详细使用示例 |
+| --- | --- | --- | --- |
+| Leader | 将复杂需求整理为任务指导、复核任务书或验收执行结果 | `$leader CREATE：把下面需求整理成实施指导：<需求描述>` | [打开用户使用示例](.agents/skills/leader/examples/usage.md) |
+| Global AI Agent Radar | 筛选真正影响 Agent 产品、工程和商业化的近期增量 | `生成最近 72 小时的全球 AI Agent 增量雷达` | [打开用户使用示例](.agents/skills/global-ai-agent-radar/examples/usage.md) |
+| Subtitle to WeChat Article | 将字幕清理、翻译并整理为公众号文章包 | `将这个字幕生成文章包：<字幕文件路径>` | [打开用户使用示例](.agents/skills/subtitle-to-wechat-article/examples/usage.md) |
+
+不同宿主的 Skill 选择和调用方式可能不同。
+
+- Codex CLI / IDE：使用当前版本提供的 Skill 选择入口；在支持时可使用 `$skill-name`。
+- ChatGPT：通过当前界面提供的 Skill 安装、启用或选择入口。
+- Claude Code 和其他 Agent：使用对应宿主提供的 Skill、插件或工作流入口。
+
+上表和详细文档中的调用前缀可按实际宿主替换，不应把某一种前缀视为所有平台的统一语法。
+
+`leader` 禁止隐式触发，普通开发请求不会自动进入 `leader`。使用它生成任务指导后，应结束 `leader` 阶段，再把任务书交给 Codex 或其他执行 Agent 实施。
+
 ## 当前 Skill
 
 ### leader
 
 `leader` 是一个显式调用的任务设计与验收 Skill，用于把复杂或模糊需求整理为可执行、可验收的 Agent 任务指导，复核已有任务书，或依据原任务书验收执行结果。它保留 Goal（要达到的真实变化）与 Harness（范围、约束、证据和止损机制）的核心：目标告诉 Agent 往哪里走，执行边界和验收机制防止它用错误捷径达标。
 
-`leader` 默认禁止隐式触发。Codex CLI 或 IDE 中使用 `$leader` 或从 `/skills` 选择；ChatGPT 中通过 `@` 显式选择；其他 Agent 使用宿主提供的显式 Skill 调用机制。普通“帮我修复”“直接修改代码”等请求不应触发它。
+`leader` 默认禁止隐式触发，也不提供执行模式。用户需要通过当前宿主的 Skill 入口显式选择；未指定模式时默认使用 `CREATE`。CREATE 生成任务指导后应结束 leader 阶段，再将普通 Markdown 任务书交给 Codex、Claude Code 或其他执行 Agent。
 
-三种使用方式：
-
-```text
-$leader CREATE：先分析仓库，再把这个模糊需求整理成给 Codex 的实施指导
-$leader REVIEW-SPEC：复核下面这份任务书，指出阻塞问题并给出具体修改段落
-$leader AUDIT-RESULT：依据原任务书、代码差异和验证证据验收这次执行结果
-```
-
-在 ChatGPT 或其他宿主中，先显式选择 `leader`，再发送同样的模式和需求。CREATE 生成任务指导后应结束 leader 阶段，再将普通 Markdown 任务书交给 Codex、Claude Code 或其他执行 Agent。复杂任务可以在宿主支持时先使用规划模式审阅方案，但任务书本身不依赖特定命令。
-
-具体模式、任务模板和验收规则见该 Skill 的 [SKILL.md](.agents/skills/leader/SKILL.md)。
+可复制的 CREATE、REVIEW-SPEC 和 AUDIT-RESULT 输入见[用户使用示例](.agents/skills/leader/examples/usage.md)；实际模式、任务模板和验收规则见该 Skill 的 [SKILL.md](.agents/skills/leader/SKILL.md)。
 
 ### global-ai-agent-radar
 
 `global-ai-agent-radar` 研究最近 24–72 小时全球 AI Agent 在产品、技术、开源生态、企业应用、商业化、融资和竞争方面的真正增量，为技术负责人、产品负责人、业务负责人和创业者生成增量雷达。它强调原始来源、时间核验、去重、评分、影响判断和后续可验证指标，不是普通 AI 新闻摘要。
 
-具体工作流、运行时数据契约和专属工具见该 Skill 的 [SKILL.md](.agents/skills/global-ai-agent-radar/SKILL.md)。根 README 不重复维护 Skill 内部规则。
+默认雷达、专题、特定读者和观察池维护的可复制输入见[用户使用示例](.agents/skills/global-ai-agent-radar/examples/usage.md)；具体工作流、运行时数据契约和专属工具见该 Skill 的 [SKILL.md](.agents/skills/global-ai-agent-radar/SKILL.md)。
 
 ### subtitle-to-wechat-article
 
 `subtitle-to-wechat-article` 读取 SRT、WebVTT、ASS/SSA、LRC、TXT 或 Markdown 字幕，将中文字幕直接文章化，并把英文或其他外语字幕先准确翻译为中文语义底稿，再重组为中文公众号文章。它采用“包外可编辑源稿 + 包内不可变发布快照”模型，支持默认封面模式和显式正文配图模式；发布包包含独立标题、Markdown 快照、稳定样式 HTML、真实无字封面、可选正文图、发布指南与 manifest。
 
-具体工作流、翻译规则、文章模板和字幕规范化工具见该 Skill 的 [SKILL.md](.agents/skills/subtitle-to-wechat-article/SKILL.md)。根 README 不重复维护 Skill 内部规则。
+新建文章包、翻译、源稿修改、新版本、incomplete 恢复和状态查询的可复制输入见[用户使用示例](.agents/skills/subtitle-to-wechat-article/examples/usage.md)；具体工作流、翻译规则、文章模板和字幕规范化工具见该 Skill 的 [SKILL.md](.agents/skills/subtitle-to-wechat-article/SKILL.md)。
 
 ## 目录结构
 
@@ -47,17 +55,21 @@ $leader AUDIT-RESULT：依据原任务书、代码差异和验证证据验收这
 │   │   ├── SKILL.md
 │   │   ├── agents/
 │   │   │   └── openai.yaml
+│   │   ├── examples/
+│   │   │   └── usage.md
 │   │   └── references/
 │   ├── global-ai-agent-radar/
 │   │   ├── SKILL.md
 │   │   ├── references/
 │   │   ├── examples/
+│   │   │   └── usage.md
 │   │   ├── assets/
 │   │   └── scripts/
 │   └── subtitle-to-wechat-article/
 │       ├── SKILL.md
 │       ├── references/
 │       ├── examples/
+│       │   └── usage.md
 │       ├── assets/
 │       └── scripts/
 ├── .github/workflows/validate.yml
@@ -143,12 +155,14 @@ ZIP 只有一个顶层目录：
 
 1. 在 `.agents/skills/<skill-name>/` 创建独立目录；名称只使用小写字母、数字和连字符。
 2. 创建带有 `name` 和 `description` frontmatter 的 `SKILL.md`，并确保 `name` 与目录名一致。
-3. 按需增加 `agents/`、`references/`、`examples/`、`assets/` 和 `scripts/`；不要在 Skill 内新增 README。
-4. 保证所有运行时文件和本地引用都位于该 Skill 目录内，脚本只处理确定性任务。
-5. 如果只有通用约束，不需要新增插件；仓库校验和 CI 会自动发现并打包该 Skill。
-6. 如果有专属数据契约，在 `plugins/<skill_name>.py` 实现 `PLUGIN_API_VERSION = 1`、`SKILL_NAME` 和返回独立 `ValidationResult` 的 `validate(context)`；插件不得修改文件或访问网络。
-7. 通用测试放入 `tests/framework/`，插件测试放入 `tests/plugins/`，Skill 运行时测试放入 `tests/skills/<skill_name>/`，端到端测试放入 `tests/integration/`。
-8. 运行仓库校验、全部测试、目标打包、`compileall` 和 `git diff --check`。
+3. 创建面向最终用户的 `examples/usage.md`，并在 `SKILL.md` 中增加按需读取的有效相对链接；高质量输出、反面输出和转换结果继续使用独立示例文件。
+4. 在根 README 的“快速使用”表格中增加一句话用途、最短输入和 `examples/usage.md` 入口。
+5. 按需增加 `agents/`、其他 `examples/`、`references/`、`assets/` 和 `scripts/`；不要在 Skill 内新增 README。
+6. 保证所有运行时文件和本地引用都位于该 Skill 目录内，脚本只处理确定性任务。
+7. 如果只有通用约束，不需要新增插件；仓库校验和 CI 会自动发现并打包该 Skill。
+8. 如果有专属数据契约，在 `plugins/<skill_name>.py` 实现 `PLUGIN_API_VERSION = 1`、`SKILL_NAME` 和返回独立 `ValidationResult` 的 `validate(context)`；插件不得修改文件或访问网络。
+9. 通用测试放入 `tests/framework/`，插件测试放入 `tests/plugins/`，Skill 运行时测试放入 `tests/skills/<skill_name>/`，端到端测试放入 `tests/integration/`。
+10. 运行仓库校验、全部测试、目标打包、`compileall` 和 `git diff --check`。
 
 插件文件名使用 Skill 名称将连字符替换为下划线后的形式，例如 `global-ai-agent-radar` 对应 `plugins/global_ai_agent_radar.py`。仓库级校验会全量发现插件并报告失效或孤立插件；定向打包只加载目标插件。
 
