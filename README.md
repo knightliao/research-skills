@@ -11,6 +11,7 @@
 | Skill | 一句话用途 | 最短输入 | 详细使用示例 |
 | --- | --- | --- | --- |
 | Leader | 将复杂需求整理为任务指导、复核任务书或验收执行结果 | `$leader CREATE：把下面需求整理成实施指导：<需求描述>` | [打开用户使用示例](.agents/skills/leader/examples/usage.md) |
+| Analyze Code | 先建立完整地图和主链路，再按原始行号解释陌生代码 | `$analyze-code 帮我看懂下面这段代码：<代码>` | [打开用户使用示例](.agents/skills/analyze-code/examples/usage.md) |
 | Global AI Agent Radar | 筛选真正影响 Agent 产品、工程和商业化的近期增量 | `生成最近 72 小时的全球 AI Agent 增量雷达` | [打开用户使用示例](.agents/skills/global-ai-agent-radar/examples/usage.md) |
 | Subtitle to WeChat Article | 将字幕清理、翻译并整理为公众号文章包 | `将这个字幕生成文章包：<字幕文件路径>` | [打开用户使用示例](.agents/skills/subtitle-to-wechat-article/examples/usage.md) |
 
@@ -34,6 +35,12 @@
 
 可复制的 CREATE、REVIEW-SPEC 和 AUDIT-RESULT 输入见[用户使用示例](.agents/skills/leader/examples/usage.md)；实际模式、任务模板和验收规则见该 Skill 的 [SKILL.md](.agents/skills/leader/SKILL.md)。
 
+### analyze-code
+
+`analyze-code` 帮助用户看懂当前消息中直接粘贴的一段陌生代码。它识别真实入口和主执行路径，再根据输入形态使用逻辑阶段、职责与方法、文件模块或入口处理链地图，并按未经格式化的原始行号覆盖所有有实际语义的代码；解释深度根据分支、状态和副作用的重要性分配。
+
+该 Skill 只在用户主要意图是理解、解释或看懂代码时隐式触发，不能仅凭消息里出现代码块触发。默认只做静态理解，不运行或修改代码，也不自动扩展到 Review、Debug、安全、性能、重构或测试生成。可复制输入见[用户使用示例](.agents/skills/analyze-code/examples/usage.md)；完整行为与输出契约见该 Skill 的 [SKILL.md](.agents/skills/analyze-code/SKILL.md)。
+
 ### global-ai-agent-radar
 
 `global-ai-agent-radar` 研究最近 24–72 小时全球 AI Agent 在产品、技术、开源生态、企业应用、商业化、融资和竞争方面的真正增量，为技术负责人、产品负责人、业务负责人和创业者生成增量雷达。它强调原始来源、时间核验、去重、评分、影响判断和后续可验证指标，不是普通 AI 新闻摘要。
@@ -52,6 +59,13 @@
 .
 ├── .agents/skills/
 │   ├── leader/
+│   │   ├── SKILL.md
+│   │   ├── agents/
+│   │   │   └── openai.yaml
+│   │   ├── examples/
+│   │   │   └── usage.md
+│   │   └── references/
+│   ├── analyze-code/
 │   │   ├── SKILL.md
 │   │   ├── agents/
 │   │   │   └── openai.yaml
@@ -182,7 +196,7 @@ ZIP 只有一个顶层目录：
 
 ## 第一版已知限制
 
-- 当前仓库包含 `leader`、`global-ai-agent-radar` 和 `subtitle-to-wechat-article` 三个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
+- 当前仓库包含 `leader`、`analyze-code`、`global-ai-agent-radar` 和 `subtitle-to-wechat-article` 四个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
 - 插件 API 当前版本为 `1`，第一版只提供 `validate` 钩子，不提供自定义打包、发布或 benchmark 生命周期。
 - 插件作为受信任的本地 Python 代码运行，没有进程级沙箱；代码审查必须保证其确定性、无网络且不修改文件。
 - frontmatter 校验只支持当前仓库使用的扁平 `key: value` 子集，不是完整 YAML 解析器。

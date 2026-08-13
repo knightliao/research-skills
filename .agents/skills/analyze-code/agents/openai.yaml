@@ -1,0 +1,7 @@
+interface:
+  display_name: "代码分析"
+  short_description: "从整体目的和主执行路径入手，按原始行号解释陌生代码"
+  default_prompt: "使用 $analyze-code 帮我看懂下面这段代码。"
+
+policy:
+  allow_implicit_invocation: true
