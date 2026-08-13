@@ -1,0 +1,4 @@
+interface:
+  display_name: "全球 AI Agent 增量雷达"
+  short_description: "聚焦近 24–72 小时全球 AI Agent 的真实增量与决策影响"
+  default_prompt: "使用 $global-ai-agent-radar 研究最近 72 小时全球 AI Agent 的真正增量并生成决策雷达。"
