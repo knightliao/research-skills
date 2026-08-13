@@ -48,18 +48,19 @@ class AnalyzeCodeContractTests(unittest.TestCase):
             with self.subTest(path=path.relative_to(ROOT)):
                 self.assertTrue(path.is_file())
 
-    def test_frontmatter_routes_by_intent_instead_of_code_presence(self) -> None:
+    def test_frontmatter_requires_explicit_invocation(self) -> None:
         match = FRONTMATTER_RE.match(read(SKILL_PATH))
         self.assertIsNotNone(match)
         assert match is not None
         frontmatter = match.group("body")
         self.assertIsNotNone(re.search(r"^name:\s*analyze-code$", frontmatter, re.MULTILINE))
-        self.assertTrue(any(term in frontmatter for term in ("主要意图", "理解意图")))
-        self.assertIn("代码块", frontmatter)
-        self.assertTrue(any(term in frontmatter for term in ("仅出现", "不足以")))
+        self.assertIn("显式", frontmatter)
+        self.assertIn("$analyze-code", frontmatter)
+        self.assertTrue(any(term in frontmatter for term in ("不得调用", "禁止隐式")))
+        self.assertIn("只粘贴代码", frontmatter)
         for competing_intent in ("修改", "调试", "Review", "安全", "性能", "重构", "测试"):
             with self.subTest(competing_intent=competing_intent):
-                self.assertIn(competing_intent, frontmatter)
+                self.assertIn(competing_intent, read(SKILL_PATH))
 
     def test_output_phases_are_declared_in_public_order(self) -> None:
         contract_headings = headings(OUTPUT_CONTRACT_PATH)
@@ -136,11 +137,11 @@ class AnalyzeCodeContractTests(unittest.TestCase):
         self.assertIn("同一事实只完整解释一次", contract)
         self.assertIn("不要求相同篇幅", contract)
 
-    def test_openai_metadata_allows_guarded_implicit_invocation(self) -> None:
+    def test_openai_metadata_disables_implicit_invocation(self) -> None:
         metadata = read(OPENAI_YAML_PATH)
         self.assertIn('display_name: "代码分析"', metadata)
         self.assertRegex(metadata, r'default_prompt:\s*"[^"\n]*\$analyze-code[^"\n]*"')
-        self.assertRegex(metadata, r"allow_implicit_invocation:\s*true")
+        self.assertRegex(metadata, r"allow_implicit_invocation:\s*false")
 
     def test_good_example_is_compact_and_has_layered_output(self) -> None:
         example = read(GOOD_EXAMPLE_PATH)

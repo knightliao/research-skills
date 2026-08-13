@@ -39,7 +39,7 @@
 
 `analyze-code` 帮助用户看懂当前消息中直接粘贴的一段陌生代码。它识别真实入口和主执行路径，再根据输入形态使用逻辑阶段、职责与方法、文件模块或入口处理链地图，并按未经格式化的原始行号覆盖所有有实际语义的代码；解释深度根据分支、状态和副作用的重要性分配。
 
-该 Skill 只在用户主要意图是理解、解释或看懂代码时隐式触发，不能仅凭消息里出现代码块触发。默认只做静态理解，不运行或修改代码，也不自动扩展到 Review、Debug、安全、性能、重构或测试生成。可复制输入见[用户使用示例](.agents/skills/analyze-code/examples/usage.md)；完整行为与输出契约见该 Skill 的 [SKILL.md](.agents/skills/analyze-code/SKILL.md)。
+该 Skill 禁止隐式调用。用户需要输入 `$analyze-code` 或通过当前宿主的 Skill 入口显式选择；只粘贴代码或只表达理解意图都不会自动启用。默认只做静态理解，不运行或修改代码，也不自动扩展到 Review、Debug、安全、性能、重构或测试生成。可复制输入见[用户使用示例](.agents/skills/analyze-code/examples/usage.md)；完整行为与输出契约见该 Skill 的 [SKILL.md](.agents/skills/analyze-code/SKILL.md)。
 
 ### global-ai-agent-radar
 
