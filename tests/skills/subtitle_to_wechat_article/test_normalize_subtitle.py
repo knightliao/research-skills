@@ -52,6 +52,7 @@ class SubtitleSkillContractTests(unittest.TestCase):
             "examples/bad-example.md",
             "examples/chinese-example.md",
             "examples/english-example.md",
+            "examples/terminology-example.md",
             "references/article-writing-guide.md",
             "references/quality-checklist.md",
             "references/subtitle-processing.md",
