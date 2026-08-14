@@ -2,3 +2,6 @@ interface:
   display_name: "字幕转中文公众号文章"
   short_description: "将多种字幕清理、翻译并重组为可发布的中文公众号文章包"
   default_prompt: "使用 $subtitle-to-wechat-article 将这份字幕重组为可编辑发布的中文公众号文章包。"
+
+policy:
+  allow_implicit_invocation: false

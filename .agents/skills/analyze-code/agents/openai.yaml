@@ -4,4 +4,4 @@ interface:
   default_prompt: "使用 $analyze-code 帮我看懂下面这段代码。"
 
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false
