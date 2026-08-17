@@ -12,8 +12,9 @@
 | --- | --- | --- | --- |
 | Leader | 将复杂需求整理为任务指导、复核任务书或验收执行结果 | `$leader CREATE：把下面需求整理成实施指导：<需求描述>` | [打开用户使用示例](.agents/skills/leader/examples/usage.md) |
 | Analyze Code | 先建立完整地图和主链路，再按原始行号解释陌生代码 | `$analyze-code 帮我看懂下面这段代码：<代码>` | [打开用户使用示例](.agents/skills/analyze-code/examples/usage.md) |
-| Global AI Agent Radar | 筛选真正影响 Agent 产品、工程和商业化的近期增量 | `生成最近 72 小时的全球 AI Agent 增量雷达` | [打开用户使用示例](.agents/skills/global-ai-agent-radar/examples/usage.md) |
-| Subtitle to WeChat Article | 将字幕清理、翻译并整理为公众号文章包 | `将这个字幕生成文章包：<字幕文件路径>` | [打开用户使用示例](.agents/skills/subtitle-to-wechat-article/examples/usage.md) |
+| Global AI Agent Radar | 筛选真正影响 Agent 产品、工程和商业化的近期增量 | `$global-ai-agent-radar 生成最近 72 小时的全球 AI Agent 增量雷达` | [打开用户使用示例](.agents/skills/global-ai-agent-radar/examples/usage.md) |
+| Subtitle to WeChat Article | 将字幕清理、翻译并整理为公众号文章包 | `$subtitle-to-wechat-article 将这个字幕生成文章包：<字幕文件路径>` | [打开用户使用示例](.agents/skills/subtitle-to-wechat-article/examples/usage.md) |
+| Markdown to Image | 默认将 Markdown 排版为单张长图，按需显式分页 | `$markdown-to-image 把下面的 Markdown 排版成 PNG：<Markdown>` | [打开用户使用示例](.agents/skills/markdown-to-image/examples/usage.md) |
 
 不同宿主的 Skill 选择和调用方式可能不同。
 
@@ -53,6 +54,12 @@
 
 新建文章包、翻译、源稿修改、新版本、incomplete 恢复和状态查询的可复制输入见[用户使用示例](.agents/skills/subtitle-to-wechat-article/examples/usage.md)；具体工作流、翻译规则、文章模板和字幕规范化工具见该 Skill 的 [SKILL.md](.agents/skills/subtitle-to-wechat-article/SKILL.md)。
 
+### markdown-to-image
+
+`markdown-to-image` 将用户粘贴的 Markdown 或 UTF-8 `.md` 文件忠实排版为浅色 PNG。默认输出单张 `1080px` 宽、高度按内容增长的长图；只有用户明确要求分页、多张图片或固定页面时，才输出连续编号的 `1080×1440` 图片。标题、段落、单层列表、引用、链接和代码均由标准库脚本确定性布局，再通过 `rsvg-convert` 生成并校验图片，不使用图片生成模型绘制文字。
+
+该 Skill 禁止隐式调用，不改写原文，也不联网获取资源。表格、任务列表、Markdown 图片、原始 HTML 和嵌套结构会按源行号报错。可复制输入见[用户使用示例](.agents/skills/markdown-to-image/examples/usage.md)；完整语法和分页契约见该 Skill 的 [SKILL.md](.agents/skills/markdown-to-image/SKILL.md)。
+
 ## 目录结构
 
 ```text
@@ -79,12 +86,19 @@
 │   │   │   └── usage.md
 │   │   ├── assets/
 │   │   └── scripts/
-│   └── subtitle-to-wechat-article/
+│   ├── subtitle-to-wechat-article/
+│   │   ├── SKILL.md
+│   │   ├── references/
+│   │   ├── examples/
+│   │   │   └── usage.md
+│   │   ├── assets/
+│   │   └── scripts/
+│   └── markdown-to-image/
 │       ├── SKILL.md
+│       ├── agents/
 │       ├── references/
 │       ├── examples/
 │       │   └── usage.md
-│       ├── assets/
 │       └── scripts/
 ├── .github/workflows/validate.yml
 ├── skill_framework/        # 通用发现、校验、安全与打包内核
@@ -196,7 +210,7 @@ ZIP 只有一个顶层目录：
 
 ## 第一版已知限制
 
-- 当前仓库包含 `leader`、`analyze-code`、`global-ai-agent-radar` 和 `subtitle-to-wechat-article` 四个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
+- 当前仓库包含 `leader`、`analyze-code`、`global-ai-agent-radar`、`subtitle-to-wechat-article` 和 `markdown-to-image` 五个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
 - 插件 API 当前版本为 `1`，第一版只提供 `validate` 钩子，不提供自定义打包、发布或 benchmark 生命周期。
 - 插件作为受信任的本地 Python 代码运行，没有进程级沙箱；代码审查必须保证其确定性、无网络且不修改文件。
 - frontmatter 校验只支持当前仓库使用的扁平 `key: value` 子集，不是完整 YAML 解析器。
