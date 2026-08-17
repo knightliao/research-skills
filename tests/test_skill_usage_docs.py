@@ -144,6 +144,35 @@ class SkillUsageDocumentationTests(unittest.TestCase):
                     f"README.md 中 {skill_name} 的使用示例链接目标不存在",
                 )
 
+    def test_readme_explicitly_invokes_skills_that_disable_implicit_invocation(self) -> None:
+        readme_lines = self.readme_text.splitlines()
+        for skill_dir in self.skill_dirs:
+            skill_name = skill_dir.name
+            metadata_path = skill_dir / "agents" / "openai.yaml"
+            if not metadata_path.is_file():
+                continue
+            metadata = metadata_path.read_text(encoding="utf-8")
+            if not re.search(r"^\s*allow_implicit_invocation:\s*false\s*$", metadata, re.MULTILINE):
+                continue
+
+            usage_target = f".agents/skills/{skill_name}/examples/usage.md"
+            matching_rows = [
+                line
+                for line in readme_lines
+                if line.startswith("|") and usage_target in line
+            ]
+            with self.subTest(skill=skill_name):
+                self.assertEqual(
+                    len(matching_rows),
+                    1,
+                    f"README.md 快速使用表格中应恰好有一行 {skill_name}",
+                )
+                self.assertIn(
+                    f"${skill_name}",
+                    matching_rows[0],
+                    f"{skill_name} 禁止隐式调用，README.md 最短输入必须显式指定 ${skill_name}",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

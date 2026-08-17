@@ -1,0 +1,7 @@
+interface:
+  display_name: "Markdown 阅读图片"
+  short_description: "默认将 Markdown 忠实排版为单张长图，支持显式分页输出"
+  default_prompt: "使用 $markdown-to-image 将下面的 Markdown 忠实排版为一张长图。"
+
+policy:
+  allow_implicit_invocation: false
