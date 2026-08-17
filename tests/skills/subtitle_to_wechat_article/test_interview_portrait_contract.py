@@ -36,6 +36,7 @@ class InterviewPortraitContractTests(unittest.TestCase):
             "不得把主持人、采访者、同名者或推测身份当作主人公",
             "获取可信头像并微修",
             "保持文章包 incomplete",
+            "只预览图片时不创建任何包",
         ):
             self.assertIn(phrase, workflow)
 
@@ -92,6 +93,40 @@ class InterviewPortraitContractTests(unittest.TestCase):
             "真实头像微修结果",
         ):
             self.assertIn(phrase, self.quality)
+
+    def test_preview_image_has_separate_storage_contract(self) -> None:
+        routing = self.skill.split("## 自然语言意图路由", 1)[1].split(
+            "## 主工作流", 1
+        )[0]
+        preview_contract = self.skill.split("### 只预览图片", 1)[1].split(
+            "### 创建发布包", 1
+        )[0]
+        path_contract = self.package.split("## 预览图与正式资产路径", 1)[1].split(
+            "## 用户访谈的人物配图", 1
+        )[0]
+
+        for phrase in (
+            "试试配图",
+            "不创建发布包",
+            "不得在仓库中创建 `output/`",
+        ):
+            self.assertIn(phrase, routing)
+        for phrase in (
+            "宿主图片工具的默认生成目录",
+            "仓库之外的临时路径",
+            "当前图片不是正式发布资产",
+            "不得把预览文件手工复制进包内",
+        ):
+            self.assertIn(phrase, preview_contract)
+        for phrase in (
+            "$CODEX_HOME/generated_images/",
+            "不得为预览在仓库中创建 `output/`",
+            "必须通过 `add-image --role cover`",
+            "不能手工复制或移动到包内",
+        ):
+            self.assertIn(phrase, path_contract)
+        self.assertIn("若只预览图片", self.quality)
+        self.assertIn("只试一张配图或封面预览", self.usage)
 
 
 if __name__ == "__main__":
