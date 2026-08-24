@@ -11,6 +11,7 @@
 | Skill | 一句话用途 | 最短输入 | 详细使用示例 |
 | --- | --- | --- | --- |
 | Leader | 将复杂需求整理为任务指导、复核任务书或验收执行结果 | `$leader CREATE：把下面需求整理成实施指导：<需求描述>` | [打开用户使用示例](.agents/skills/leader/examples/usage.md) |
+| Clarify First | 每轮只问一个中立问题，用户确认需求摘要后再给方案 | `$clarify-first 请逐步澄清这个想法，每次只问一个问题：<问题>` | [打开用户使用示例](.agents/skills/clarify-first/examples/usage.md) |
 | Analyze Code | 先建立完整地图和主链路，再按原始行号解释陌生代码 | `$analyze-code 帮我看懂下面这段代码：<代码>` | [打开用户使用示例](.agents/skills/analyze-code/examples/usage.md) |
 | Global AI Agent Radar | 筛选真正影响 Agent 产品、工程和商业化的近期增量 | `$global-ai-agent-radar 生成最近 72 小时的全球 AI Agent 增量雷达` | [打开用户使用示例](.agents/skills/global-ai-agent-radar/examples/usage.md) |
 | Subtitle to WeChat Article | 将字幕清理、翻译并整理为公众号文章包 | `$subtitle-to-wechat-article 将这个字幕生成文章包：<字幕文件路径>` | [打开用户使用示例](.agents/skills/subtitle-to-wechat-article/examples/usage.md) |
@@ -35,6 +36,12 @@
 `leader` 默认禁止隐式触发，也不提供执行模式。用户需要通过当前宿主的 Skill 入口显式选择；未指定模式时默认使用 `CREATE`。CREATE 生成任务指导后应结束 leader 阶段，再将普通 Markdown 任务书交给 Codex、Claude Code 或其他执行 Agent。
 
 可复制的 CREATE、REVIEW-SPEC 和 AUDIT-RESULT 输入见[用户使用示例](.agents/skills/leader/examples/usage.md)；实际模式、任务模板和验收规则见该 Skill 的 [SKILL.md](.agents/skills/leader/SKILL.md)。
+
+### clarify-first
+
+`clarify-first` 是一个显式调用的苏格拉底式需求澄清 Skill，用于在开放式问题或任务中逐步检验真实动机、假设、证据、矛盾和取舍。它每轮只提出一个简短、中立的问题并等待回答；当前回答仍不清楚时，会继续澄清同一点，不提前跳到下一项。
+
+该 Skill 禁止隐式调用，避免普通问答被无故打断。澄清期间严格不提供方案、建议、倾向性结论或行动步骤；所有关键内容清楚后，只提交需求摘要并等待用户明确确认，下一轮才进入方案阶段。可复制输入见[用户使用示例](.agents/skills/clarify-first/examples/usage.md)；完整提问和状态门槛见该 Skill 的 [SKILL.md](.agents/skills/clarify-first/SKILL.md)。
 
 ### analyze-code
 
@@ -72,6 +79,12 @@
 │   │   ├── examples/
 │   │   │   └── usage.md
 │   │   └── references/
+│   ├── clarify-first/
+│   │   ├── SKILL.md
+│   │   ├── agents/
+│   │   │   └── openai.yaml
+│   │   └── examples/
+│   │       └── usage.md
 │   ├── analyze-code/
 │   │   ├── SKILL.md
 │   │   ├── agents/
@@ -210,7 +223,7 @@ ZIP 只有一个顶层目录：
 
 ## 第一版已知限制
 
-- 当前仓库包含 `leader`、`analyze-code`、`global-ai-agent-radar`、`subtitle-to-wechat-article` 和 `markdown-to-image` 五个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
+- 当前仓库包含 `leader`、`clarify-first`、`analyze-code`、`global-ai-agent-radar`、`subtitle-to-wechat-article` 和 `markdown-to-image` 六个 Skill；CI 会自动发现、校验和打包新增 Skill，但专属业务行为仍需随 Skill 增加对应测试。
 - 插件 API 当前版本为 `1`，第一版只提供 `validate` 钩子，不提供自定义打包、发布或 benchmark 生命周期。
 - 插件作为受信任的本地 Python 代码运行，没有进程级沙箱；代码审查必须保证其确定性、无网络且不修改文件。
 - frontmatter 校验只支持当前仓库使用的扁平 `key: value` 子集，不是完整 YAML 解析器。
