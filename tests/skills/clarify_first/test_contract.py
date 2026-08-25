@@ -23,54 +23,93 @@ class ClarifyFirstContractTests(unittest.TestCase):
             with self.subTest(path=path.relative_to(ROOT)):
                 self.assertTrue(path.is_file())
 
-    def test_clarification_turn_has_exactly_one_question_contract(self) -> None:
+    def test_question_budget_is_bounded_and_can_stop_early(self) -> None:
+        skill = read(SKILL_PATH)
+        for invariant in (
+            "问诊最多提出 6 个问题",
+            "深化追问也计入 6 个问题",
+            "信息足以形成准确新问题时立即停止问诊",
+            "第 6 个问题回答后必须停止问诊",
+            "问题预算用完后不再追加诊断问题",
+        ):
+            with self.subTest(invariant=invariant):
+                self.assertIn(invariant, skill)
+
+    def test_each_turn_has_one_update_sentence_and_one_question(self) -> None:
         skill = read(SKILL_PATH)
         for invariant in (
             "每次回复只能提出一个问题",
-            "等待用户回答",
-            "继续围绕同一问题追问",
-            "不提前跳到其他维度",
+            "提问前先用一句话说明上一条回答让当前判断更新了什么",
+            "随后只问一个简短、中立的问题并停止",
+            "更新句必须是自然、可核对的陈述",
         ):
             with self.subTest(invariant=invariant):
                 self.assertIn(invariant, skill)
-        self.assertNotIn("每轮问 1–4 个", skill)
 
-    def test_solution_is_gated_by_explicit_summary_confirmation(self) -> None:
+    def test_claims_are_classified_before_interpretation(self) -> None:
         skill = read(SKILL_PATH)
-        for invariant in (
-            "明确确认需求摘要前，严格禁止",
-            "不得在同一条回复中同时提交首次需求摘要并给出方案",
-            "下一次回复才可以提供方案",
-            "沉默、转移话题、回答新的细节或“差不多”不视为明确确认",
+        for claim_type in ("可验证的事实", "对事实的解释", "价值判断", "希望实现的目标"):
+            with self.subTest(claim_type=claim_type):
+                self.assertIn(claim_type, skill)
+        self.assertIn("不能整体当作事实", skill)
+
+    def test_questions_target_only_conclusion_changing_uncertainty(self) -> None:
+        skill = read(SKILL_PATH)
+        for dimension in (
+            "澄清关键词",
+            "识别默认前提",
+            "追溯证据来源",
+            "寻找相反解释",
+            "检验结论影响",
+            "明确真实目标",
         ):
-            with self.subTest(invariant=invariant):
-                self.assertIn(invariant, skill)
-        self.assertNotIn("可以给出临时方案", skill)
-
-    def test_socratic_questions_are_neutral_and_non_leading(self) -> None:
-        skill = read(SKILL_PATH)
-        for dimension in ("检验动机", "检验假设", "检验证据", "检验矛盾", "检验取舍"):
             with self.subTest(dimension=dimension):
                 self.assertIn(dimension, skill)
-        for invariant in ("简短、中立、自然", "不暗示哪种回答更正确", "不在问题中预设结论"):
+        self.assertIn("不同答案必须可能改变问题定义、证据强度、关键变量或后续判断", skill)
+
+    def test_diagnostic_summary_has_exact_six_outputs(self) -> None:
+        skill = read(SKILL_PATH)
+        for output in (
+            "我最开始问的问题",
+            "我真正想解决的问题",
+            "已经确认的事实",
+            "仍未验证的假设",
+            "最可能改变结论的关键变量",
+            "一个准确、具体、可以继续行动的新问题",
+        ):
+            with self.subTest(output=output):
+                self.assertIn(output, skill)
+        self.assertIn("只选一个最具区分度的变量", skill)
+
+    def test_answer_is_gated_by_new_question_confirmation(self) -> None:
+        skill = read(SKILL_PATH)
+        for invariant in (
+            "用户确认最终新问题前，严格禁止",
+            "只有用户明确确认第六项的新问题后",
+            "判断、理由和下一步行动",
+            "请回复“确认”，或指出这个新问题需要修改的一个地方",
+        ):
             with self.subTest(invariant=invariant):
                 self.assertIn(invariant, skill)
+        self.assertNotIn("确认需求摘要后", skill)
 
-    def test_usage_documents_the_turn_by_turn_gate(self) -> None:
+    def test_usage_documents_the_full_diagnostic_protocol(self) -> None:
         usage = read(USAGE_PATH)
         for invariant in (
-            "每轮只问一个",
-            "继续澄清同一问题",
-            "明确确认需求摘要",
-            "不会在同一条回复中附带方案",
+            "发生了什么",
+            "怎么理解",
+            "卡在哪里",
+            "最多 6 个",
+            "上一条回答让它更新了什么判断",
+            "明确确认第六项的新问题后",
         ):
             with self.subTest(invariant=invariant):
                 self.assertIn(invariant, usage)
-        self.assertNotIn("先问最关键的三个问题", usage)
-        self.assertNotIn("推荐默认值", usage)
+        self.assertIn("如果 6 个问题用完后仍有不确定信息", usage)
 
     def test_metadata_preserves_explicit_invocation(self) -> None:
         metadata = read(OPENAI_YAML_PATH)
+        self.assertIn('display_name: "苏格拉底式问诊"', metadata)
         self.assertRegex(metadata, r'default_prompt:\s*"[^"\n]*\$clarify-first[^"\n]*"')
         self.assertRegex(metadata, r"allow_implicit_invocation:\s*false")
 
