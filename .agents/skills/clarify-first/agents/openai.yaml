@@ -1,7 +1,7 @@
 interface:
-  display_name: "需求澄清"
-  short_description: "每轮只问一个中立问题，确认需求摘要后再给方案"
-  default_prompt: "使用 $clarify-first，每轮只问我一个问题，等我确认需求摘要后再给方案。"
+  display_name: "苏格拉底式问诊"
+  short_description: "最多六个单问题厘清事实与假设，确认新问题后再给判断"
+  default_prompt: "使用 $clarify-first。我会描述发生了什么、我的理解和卡点；请用最多 6 个单问题帮我找到真正值得回答的问题。"
 
 policy:
   allow_implicit_invocation: false

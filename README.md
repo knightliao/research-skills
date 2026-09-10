@@ -11,7 +11,7 @@
 | Skill | 一句话用途 | 最短输入 | 详细使用示例 |
 | --- | --- | --- | --- |
 | Leader | 将复杂需求整理为任务指导、复核任务书或验收执行结果 | `$leader CREATE：把下面需求整理成实施指导：<需求描述>` | [打开用户使用示例](.agents/skills/leader/examples/usage.md) |
-| Clarify First | 每轮只问一个中立问题，用户确认需求摘要后再给方案 | `$clarify-first 请逐步澄清这个想法，每次只问一个问题：<问题>` | [打开用户使用示例](.agents/skills/clarify-first/examples/usage.md) |
+| Clarify First | 最多六个单问题区分事实、解释、价值与目标，确认新问题后再给判断 | `$clarify-first <发生了什么、你的理解和卡点>` | [打开用户使用示例](.agents/skills/clarify-first/examples/usage.md) |
 | Analyze Code | 先建立完整地图和主链路，再按原始行号解释陌生代码 | `$analyze-code 帮我看懂下面这段代码：<代码>` | [打开用户使用示例](.agents/skills/analyze-code/examples/usage.md) |
 | Global AI Agent Radar | 筛选真正影响 Agent 产品、工程和商业化的近期增量 | `$global-ai-agent-radar 生成最近 72 小时的全球 AI Agent 增量雷达` | [打开用户使用示例](.agents/skills/global-ai-agent-radar/examples/usage.md) |
 | Subtitle to WeChat Article | 将字幕清理、翻译并整理为公众号文章包 | `$subtitle-to-wechat-article 将这个字幕生成文章包：<字幕文件路径>` | [打开用户使用示例](.agents/skills/subtitle-to-wechat-article/examples/usage.md) |
@@ -39,9 +39,9 @@
 
 ### clarify-first
 
-`clarify-first` 是一个显式调用的苏格拉底式需求澄清 Skill，用于在开放式问题或任务中逐步检验真实动机、假设、证据、矛盾和取舍。它每轮只提出一个简短、中立的问题并等待回答；当前回答仍不清楚时，会继续澄清同一点，不提前跳到下一项。
+`clarify-first` 是一个显式调用的苏格拉底式问题问诊 Skill。用户具体描述发生了什么、自己的理解和卡点后，它通过最多 6 个逐轮问题区分可验证事实、对事实的解释、价值判断和目标，并检查含糊词、默认前提、证据来源、相反解释及结论成立与否的影响。
 
-该 Skill 禁止隐式调用，避免普通问答被无故打断。澄清期间严格不提供方案、建议、倾向性结论或行动步骤；所有关键内容清楚后，只提交需求摘要并等待用户明确确认，下一轮才进入方案阶段。可复制输入见[用户使用示例](.agents/skills/clarify-first/examples/usage.md)；完整提问和状态门槛见该 Skill 的 [SKILL.md](.agents/skills/clarify-first/SKILL.md)。
+每轮提问前，它会用一句话说明上一条回答让判断如何更新，然后只问一个可能改变结论的问题；信息足够时立即停止，不机械凑满 6 个。问诊结束后固定整理最初问题、真正问题、确认事实、未验证假设、关键变量和一个新问题；只有用户确认新问题后才给判断、理由和下一步行动。可复制输入见[用户使用示例](.agents/skills/clarify-first/examples/usage.md)；完整问诊协议见该 Skill 的 [SKILL.md](.agents/skills/clarify-first/SKILL.md)。
 
 ### analyze-code
 
